@@ -47,7 +47,7 @@ export function SubtitleConfig({
       outline_color: '&H00000000',
       shadow_color: '&H80000000',
       background_color: '&H00000000',
-      position: 'bottom_center',
+      position: 'middle_center',
       margin_left: 20,
       margin_right: 20,
       margin_vertical: 40,
@@ -72,7 +72,11 @@ export function SubtitleConfig({
       border_style: 1,
       all_caps: true,
       word_wrap: true,
-      max_line_length: 30
+      max_line_length: 30,
+      enable_word_highlighting: true,
+      highlight_color: '&H0000FFFF',  // Yellow highlight
+      highlight_outline_color: '&H00000000',  // Black outline for highlight
+      highlight_bold: true
     }
     
     setSpeakerStyles(prev => ({
@@ -166,6 +170,21 @@ export function SubtitleConfig({
             />
             <label htmlFor="enableSpeakerDetection" className="text-sm font-medium">
               Enable Speaker Detection
+            </label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="enableWordHighlighting"
+              checked={subtitleConfig.enable_word_highlighting ?? true}
+              onChange={(e) => onSubtitleConfigChange({
+                ...subtitleConfig,
+                enable_word_highlighting: e.target.checked
+              })}
+            />
+            <label htmlFor="enableWordHighlighting" className="text-sm font-medium">
+              Enable Word Highlighting
             </label>
           </div>
 

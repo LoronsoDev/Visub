@@ -179,6 +179,7 @@ class VisubAPI:
         config.max_words_per_subtitle = config_dict.get('max_words', 4)
         config.output_srt = config_dict.get('output_srt', False)
         config.enable_speaker_detection = config_dict.get('enable_speaker_detection', False)
+        config.enable_word_highlighting = config_dict.get('enable_word_highlighting', True)
         
         # Parse speaker configurations
         speakers = config_dict.get('speakers', [])
@@ -277,7 +278,11 @@ class VisubAPI:
                     border_style=speaker_config.get('border_style', 1),
                     all_caps=speaker_config.get('all_caps', True),
                     word_wrap=speaker_config.get('word_wrap', True),
-                    max_line_length=speaker_config.get('max_line_length', 30)
+                    max_line_length=speaker_config.get('max_line_length', 30),
+                    enable_word_highlighting=speaker_config.get('enable_word_highlighting', True),
+                    highlight_color=hex_to_ass_color(speaker_config.get('highlight_color', '&H0000FFFF')),
+                    highlight_outline_color=hex_to_ass_color(speaker_config.get('highlight_outline_color', '&H00000000')),
+                    highlight_bold=speaker_config.get('highlight_bold', True)
                 )
                 
                 config.add_speaker_style(speaker_id, style)

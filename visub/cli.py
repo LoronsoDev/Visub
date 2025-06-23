@@ -126,6 +126,7 @@ def get_subtitles(audio_paths: dict, output_dir: str, transcribe: callable, conf
         print(f"DEBUG: Config max_words_per_subtitle: {config.max_words_per_subtitle}")
         print(f"DEBUG: Config speaker_styles: {list(config.speaker_styles.keys())}")
         print(f"DEBUG: Config enable_speaker_detection: {config.enable_speaker_detection}")
+        print(f"DEBUG: Config enable_word_highlighting: {config.enable_word_highlighting}")
 
         # Transcribe audio (assumes word-level timestamps)
         result = transcribe(audio_path)
@@ -152,12 +153,13 @@ def get_subtitles(audio_paths: dict, output_dir: str, transcribe: callable, conf
                             "start": word_group[0]["start"],
                             "end": word_group[-1]["end"],
                             "text": combined_text,
-                            "speaker": speaker_id
+                            "speaker": speaker_id,
+                            "words": word_group  # Preserve individual word data for highlighting
                         })
 
         # Write ASS file with multiple styles
         with open(ass_path, "w", encoding="utf-8") as f:
-            # Write ASS header
+            # Write ASS header with no animations/transitions
             f.write("""[Script Info]
 Title: Word-by-Word Subtitles
 ScriptType: v4.00+
@@ -165,6 +167,7 @@ WrapStyle: 0
 ScaledBorderAndShadow: yes
 PlayResX: 1280
 PlayResY: 720
+YCbCr Matrix: None
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
@@ -180,7 +183,7 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
             f.write("\n[Events]\n")
             f.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
             
-            # Write dialogue events with appropriate styles
+            # Write dialogue events with appropriate styles and word highlighting
             for i, subtitle in enumerate(subtitle_groups):
                 start_time = ass_time(subtitle["start"])
                 end_time = ass_time(subtitle["end"])
@@ -215,7 +218,68 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
                     text = text.upper()
                     print(f"DEBUG: Applied uppercase transformation to: {text}")
                 
-                f.write(f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}\n")
+                # Add word highlighting if enabled (karaoke-style)
+                if (config.enable_word_highlighting and 
+                    hasattr(current_style, 'enable_word_highlighting') and 
+                    current_style.enable_word_highlighting and
+                    "words" in subtitle):
+                    
+                    print(f"DEBUG: Adding karaoke-style word highlighting for subtitle")
+                    
+                    # Create karaoke-style highlighting using exact WhisperX word timings
+                    words = subtitle["words"]
+                    
+                    # Apply text transformations to individual words first
+                    processed_words = []
+                    for i, word_item in enumerate(words):
+                        word_text = word_item["word"].strip()
+                        if hasattr(current_style, 'all_caps') and current_style.all_caps:
+                            word_text = word_text.upper()
+                        processed_words.append((i, word_text))
+                    
+                    # Use the style's primary color for non-highlighted words
+                    default_color = current_style.primary_color
+                    
+                    # Create seamless timing by forcing exact continuity
+                    adjusted_timings = []
+                    
+                    # First pass: use exact WhisperX timings, only adjust for seamless continuity
+                    for word_index, word_data in enumerate(words):
+                        # Always use exact WhisperX start time for each word (rounded to 2 decimals)
+                        start_time = round(word_data["start"], 2)
+                        
+                        if word_index < len(words) - 1:
+                            # End exactly when next word starts (WhisperX timing)
+                            end_time = round(words[word_index + 1]["start"], 2)
+                        else:
+                            # Last word: use its exact WhisperX end time
+                            end_time = round(word_data["end"], 2)
+                        
+                        adjusted_timings.append({
+                            "start": start_time,
+                            "end": end_time,
+                            "word": word_data["word"],
+                            "original_start": word_data["start"],
+                            "original_end": word_data["end"]
+                        })
+                    
+                    # Second pass: create subtitle lines with perfectly seamless timing
+                    for word_index, timing in enumerate(adjusted_timings):
+                        word_start = ass_time(timing["start"])
+                        word_end = ass_time(timing["end"])
+                        
+                        # Create subtitle text showing full chunk with current word in bold and white
+                        highlighted_text = " ".join(
+                            f"{{\\b1}}{{\\c&HFFFFFF&}}{word_text}{{\\c{default_color}&}}{{\\b0}}" if i == word_index else word_text
+                            for i, word_text in processed_words
+                        )
+                        
+                        # Write subtitle line for this word with forced seamless timing
+                        f.write(f"Dialogue: 0,{word_start},{word_end},{style_name},,0,0,0,,{highlighted_text}\n")
+                        print(f"DEBUG: Word '{timing['word']}' forced timing: {word_start}-{word_end} (was {timing['original_start']:.3f}-{timing['original_end']:.3f})")
+                else:
+                    # Write the base subtitle line without highlighting
+                    f.write(f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}\n")
 
         # Write SRT file if requested
         if config.output_srt and srt_path:
@@ -229,6 +293,8 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
         subtitles_path[path] = ass_path
 
     return subtitles_path
+
+
 
 
 if __name__ == '__main__':

@@ -40,6 +40,10 @@ interface SpeakerStyle {
   all_caps: boolean
   word_wrap: boolean
   max_line_length: number
+  enable_word_highlighting: boolean
+  highlight_color: string
+  highlight_outline_color: string
+  highlight_bold: boolean
 }
 
 interface StyleResources {

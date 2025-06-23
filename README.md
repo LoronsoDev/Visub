@@ -1,6 +1,6 @@
 # Visub - Video Subtitle Generator
 
-AI-powered web application for generating customizable video subtitles with speaker detection and styling.
+AI-powered web application for generating customizable video subtitles with **karaoke-style word highlighting** perfect for viral TikTok videos.
 
 ## Features
 
@@ -8,6 +8,9 @@ AI-powered web application for generating customizable video subtitles with spea
 - 🎯 **AI Transcription** - WhisperX integration with word-level timestamps
 - 👥 **Speaker Detection** - Automatic speaker diarization with distinct colors
 - 🎨 **Custom Styling** - Per-speaker font, color, and position customization
+- 🎤 **Karaoke-Style Highlighting** - Word-by-word highlighting as spoken (perfect for TikTok)
+- 🎨 **Viral Video Presets** - Pre-configured styles for TikTok, YouTube, Instagram
+- 🚀 **No Flasheo** - Seamless transitions with exact WhisperX timing
 - ⚡ **Background Processing** - Redis & Celery for scalable video processing
 - 🐳 **Docker Ready** - Full containerization for deployment
 - 📱 **Modern UI** - Next.js frontend with shadcn/ui components
@@ -135,10 +138,27 @@ docker-compose up -d --build
 2. Configure subtitle settings:
    - Words per subtitle (1-10)
    - Speaker detection (on/off)
+   - **Word highlighting** (karaoke-style)
+   - Custom styling per speaker
    - AI model quality
    - Language or auto-detect
 3. Process video in background
 4. Download result with embedded subtitles
+
+### Karaoke-Style Word Highlighting
+
+Perfect for viral TikTok videos! Features:
+- **Real-time word highlighting** as spoken
+- **Exact WhisperX timing** - no interpolation
+- **Seamless transitions** - zero flasheo
+- **Bold + white highlighting** for maximum visibility
+- **Full sentence visibility** with progressive highlighting
+
+Example: "NO NECESITO TU AYUDA"
+- 0.0-0.5s: **NO** NECESITO TU AYUDA
+- 0.5-1.2s: NO **NECESITO** TU AYUDA
+- 1.2-1.5s: NO NECESITO **TU** AYUDA
+- 1.5-2.0s: NO NECESITO TU **AYUDA**
 
 ### Speaker Detection
 
@@ -146,6 +166,7 @@ docker-compose up -d --build
 - Automatically assigns different colors to speakers
 - Works best with clear, distinct voices
 - Supports multiple speakers per video
+- **Independent styling** per speaker with word highlighting
 
 ## Configuration
 

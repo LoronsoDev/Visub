@@ -33,6 +33,7 @@ export type SubtitleConfigType = {
   max_words: number
   output_srt: boolean
   enable_speaker_detection: boolean
+  enable_word_highlighting?: boolean
   speakers: SpeakerConfig[]
 }
 
@@ -54,6 +55,7 @@ export default function Home() {
     max_words: 4,
     output_srt: false,
     enable_speaker_detection: false,
+    enable_word_highlighting: true,
     speakers: []
   })
   const [transcriptionConfig, setTranscriptionConfig] = useState<TranscriptionConfigType>({

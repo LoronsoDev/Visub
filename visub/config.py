@@ -65,8 +65,8 @@ class SpeakerStyle:
     shadow_color: str = "&H80000000"   # Shadow color (with transparency)
     background_color: str = "&H00000000"  # Background box color
     
-    # Position and alignment
-    position: SubtitlePosition = SubtitlePosition.BOTTOM_CENTER
+    # Position and alignment  
+    position: SubtitlePosition = SubtitlePosition.MIDDLE_CENTER
     margin_left: int = 20
     margin_right: int = 20
     margin_vertical: int = 40
@@ -107,6 +107,12 @@ class SpeakerStyle:
     word_wrap: bool = True
     max_line_length: int = 30
     
+    # Word-level highlighting (karaoke-style)
+    enable_word_highlighting: bool = True
+    highlight_color: str = "&H0000FFFF"  # Yellow highlight by default
+    highlight_outline_color: str = "&H00000000"  # Black outline for highlight
+    highlight_bold: bool = True  # Make highlighted word bold
+    
     def to_ass_style(self, style_name: str) -> str:
         """Convert speaker style to comprehensive ASS format style string."""
         alignment = self.position.value
@@ -125,6 +131,7 @@ class SpeakerStyle:
         background_color = "&H00000000" if self.background_color == "transparent" else self.background_color
         
         # ASS format: PrimaryColour, SecondaryColour, OutlineColour, BackColour
+        # Force no animations by setting fixed values and encoding=1 (no auto-transitions)
         style_line = (
             f"Style: {style_name},{font_name},{self.font_size},"
             f"{primary_color},{primary_color},{outline_color},{background_color},"
@@ -184,6 +191,7 @@ class SubtitleConfig:
     default_style: SpeakerStyle = field(default_factory=SpeakerStyle)
     enable_speaker_detection: bool = False
     output_srt: bool = False
+    enable_word_highlighting: bool = True  # Enable word highlighting by default
     
     def get_speaker_style(self, speaker_id: Optional[str] = None) -> SpeakerStyle:
         """Get style for a specific speaker, or default if not found."""
@@ -199,11 +207,36 @@ class SubtitleConfig:
         """Generate all ASS style definitions."""
         styles = [self.default_style.to_ass_style("Default")]
         
+        # Add highlight style for default if word highlighting is enabled
+        if self.enable_word_highlighting and hasattr(self.default_style, 'enable_word_highlighting') and self.default_style.enable_word_highlighting:
+            highlight_style = self._create_highlight_style(self.default_style)
+            styles.append(highlight_style.to_ass_style("DefaultHighlight"))
+        
         for speaker_id, style in self.speaker_styles.items():
             style_name = f"Speaker_{speaker_id}"
             styles.append(style.to_ass_style(style_name))
             
+            # Add highlight style for each speaker if word highlighting is enabled
+            if self.enable_word_highlighting and hasattr(style, 'enable_word_highlighting') and style.enable_word_highlighting:
+                highlight_style = self._create_highlight_style(style)
+                styles.append(highlight_style.to_ass_style(f"{style_name}Highlight"))
+            
         return styles
+    
+    def _create_highlight_style(self, base_style: SpeakerStyle) -> SpeakerStyle:
+        """Create a highlight version of a style for word highlighting."""
+        from copy import deepcopy
+        highlight_style = deepcopy(base_style)
+        
+        # Override colors and formatting for highlighting
+        if hasattr(base_style, 'highlight_color'):
+            highlight_style.primary_color = base_style.highlight_color
+        if hasattr(base_style, 'highlight_outline_color'):
+            highlight_style.outline_color = base_style.highlight_outline_color
+        if hasattr(base_style, 'highlight_bold'):
+            highlight_style.bold = base_style.highlight_bold
+            
+        return highlight_style
 
 def create_default_config() -> SubtitleConfig:
     """Create a default subtitle configuration."""
@@ -214,7 +247,7 @@ def create_default_config() -> SubtitleConfig:
             font_family=FontFamily.ARIAL,
             font_size=30,
             primary_color="&H00FFFFFF",
-            position=SubtitlePosition.BOTTOM_CENTER
+            position=SubtitlePosition.MIDDLE_CENTER
         )
     )
 
@@ -276,7 +309,7 @@ def create_auto_speaker_config(detected_speakers: List[str]) -> SubtitleConfig:
             font_family=FontFamily.ARIAL,
             font_size=32,  # Slightly larger for better visibility
             primary_color=colors[i],
-            position=SubtitlePosition.BOTTOM_CENTER,
+            position=SubtitlePosition.MIDDLE_CENTER,
             bold=True,  # Bold for better visibility
             outline_width=3,  # Thicker outline for contrast
         )
