@@ -270,6 +270,26 @@ async def get_supported_languages():
 async def get_supported_positions():
     return {"positions": visub_api.get_supported_positions()}
 
+@app.get("/api/fonts")
+async def get_viral_fonts():
+    return {"fonts": visub_api.get_viral_fonts()}
+
+@app.get("/api/effects")
+async def get_text_effects():
+    return {"effects": visub_api.get_text_effects()}
+
+@app.get("/api/animations")
+async def get_animation_styles():
+    return {"animations": visub_api.get_animation_styles()}
+
+@app.get("/api/presets")
+async def get_preset_styles():
+    return {"presets": visub_api.get_preset_styles()}
+
+@app.get("/api/colors")
+async def get_color_palette():
+    return {"colors": visub_api.get_color_palette()}
+
 @app.post("/api/validate-config")
 async def validate_config(config: SubtitleConfig):
     try:

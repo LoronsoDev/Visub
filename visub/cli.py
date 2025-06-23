@@ -123,6 +123,9 @@ def get_subtitles(audio_paths: dict, output_dir: str, transcribe: callable, conf
         srt_path = os.path.join(output_dir, f"{base_name}.srt") if config.output_srt else None
         
         print(f"Generating subtitles for {base_name}...")
+        print(f"DEBUG: Config max_words_per_subtitle: {config.max_words_per_subtitle}")
+        print(f"DEBUG: Config speaker_styles: {list(config.speaker_styles.keys())}")
+        print(f"DEBUG: Config enable_speaker_detection: {config.enable_speaker_detection}")
 
         # Transcribe audio (assumes word-level timestamps)
         result = transcribe(audio_path)
@@ -169,7 +172,9 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
             
             # Write all style definitions
             styles = config.get_all_styles_for_ass()
-            for style in styles:
+            print(f"DEBUG: Writing {len(styles)} styles to ASS file")
+            for i, style in enumerate(styles):
+                print(f"DEBUG: Style {i}: {style}")
                 f.write(style + "\n")
             
             f.write("\n[Events]\n")
@@ -181,11 +186,34 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
                 end_time = ass_time(subtitle["end"])
                 text = subtitle["text"].replace('\n', '\\N')
                 
-                # Determine style name based on speaker
+                # Determine style name and get the actual style object for text transformations
+                style_name = "Default"
+                current_style = config.default_style
+                
                 if subtitle["speaker"] and subtitle["speaker"] in config.speaker_styles:
+                    # Speaker detected and has custom style
                     style_name = f"Speaker_{subtitle['speaker']}"
+                    current_style = config.speaker_styles[subtitle["speaker"]]
+                    print(f"DEBUG: Using custom style for detected speaker {subtitle['speaker']}: {style_name}")
+                elif config.speaker_styles and not config.enable_speaker_detection:
+                    # No speaker detection but custom styles exist - use first custom style
+                    first_speaker_id = list(config.speaker_styles.keys())[0]
+                    style_name = f"Speaker_{first_speaker_id}"
+                    current_style = config.speaker_styles[first_speaker_id]
+                    print(f"DEBUG: No speaker detection, using first custom style: {style_name}")
+                elif config.speaker_styles and subtitle["speaker"] is None:
+                    # Speaker detection enabled but no speaker detected for this subtitle - use first custom style
+                    first_speaker_id = list(config.speaker_styles.keys())[0]
+                    style_name = f"Speaker_{first_speaker_id}"
+                    current_style = config.speaker_styles[first_speaker_id]
+                    print(f"DEBUG: Speaker detection enabled but no speaker for this subtitle, using first custom style: {style_name}")
                 else:
-                    style_name = "Default"
+                    print(f"DEBUG: Using default style for speaker {subtitle.get('speaker', 'None')}")
+                
+                # Apply text transformations based on style settings
+                if hasattr(current_style, 'all_caps') and current_style.all_caps:
+                    text = text.upper()
+                    print(f"DEBUG: Applied uppercase transformation to: {text}")
                 
                 f.write(f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}\n")
 

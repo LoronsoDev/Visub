@@ -15,32 +15,165 @@ class SubtitlePosition(Enum):
     TOP_CENTER = 8
     TOP_RIGHT = 9
 
+class FontFamily(Enum):
+    """Popular fonts for viral video content."""
+    IMPACT = "Impact"
+    ARIAL_BLACK = "Arial Black"
+    BEBAS_NEUE = "Bebas Neue"
+    MONTSERRAT_BLACK = "Montserrat Black"
+    OSWALD = "Oswald"
+    ROBOTO_BLACK = "Roboto Black"
+    ANTON = "Anton"
+    BARLOW = "Barlow"
+    LATO_BLACK = "Lato Black"
+    OPEN_SANS_BOLD = "Open Sans"
+    NUNITO_BLACK = "Nunito Black"
+    ARIAL = "Arial"
+    HELVETICA = "Helvetica"
+
+class TextEffect(Enum):
+    """Text effects for enhanced visibility."""
+    NONE = "none"
+    GLOW = "glow"
+    SHADOW = "shadow"
+    OUTLINE = "outline"
+    OUTLINE_GLOW = "outline_glow"
+    DOUBLE_OUTLINE = "double_outline"
+    DROP_SHADOW = "drop_shadow"
+
+class AnimationStyle(Enum):
+    """Animation styles for text appearance."""
+    NONE = "none"
+    FADE_IN = "fade_in"
+    SLIDE_UP = "slide_up"
+    SCALE_IN = "scale_in"
+    TYPE_WRITER = "type_writer"
+    BOUNCE = "bounce"
+    PULSE = "pulse"
+
 @dataclass
 class SpeakerStyle:
-    """Configuration for individual speaker subtitle styling."""
-    font_family: str = "Arial"
-    font_size: int = 30
-    color: str = "&H00FFFFFF"  # White in ASS format
+    """Configuration for individual speaker subtitle styling with viral video options."""
+    # Font settings
+    font_family: FontFamily = FontFamily.IMPACT
+    font_size: int = 48
+    font_weight: str = "bold"  # normal, bold, extra-bold
+    
+    # Colors (in ASS format &H00BBGGRR)
+    primary_color: str = "&H00FFFFFF"  # Main text color
+    outline_color: str = "&H00000000"  # Outline color
+    shadow_color: str = "&H80000000"   # Shadow color (with transparency)
+    background_color: str = "&H00000000"  # Background box color
+    
+    # Position and alignment
     position: SubtitlePosition = SubtitlePosition.BOTTOM_CENTER
-    bold: bool = False
+    margin_left: int = 20
+    margin_right: int = 20
+    margin_vertical: int = 40
+    
+    # Text styling
+    bold: bool = True
     italic: bool = False
-    outline_color: str = "&H00000000"  # Black outline
-    shadow_color: str = "&H00000000"  # Black shadow
-    outline_width: int = 2
-    shadow_distance: int = 2
+    underline: bool = False
+    strikeout: bool = False
+    
+    # Effects
+    outline_width: float = 3.0
+    shadow_distance: float = 2.0
+    text_effect: TextEffect = TextEffect.OUTLINE
+    
+    # Advanced styling
+    letter_spacing: float = 0.0
+    line_spacing: float = 1.0
+    scale_x: float = 100.0  # Horizontal scaling percentage
+    scale_y: float = 100.0  # Vertical scaling percentage
+    rotation: float = 0.0   # Text rotation in degrees
+    
+    # Animation
+    animation: AnimationStyle = AnimationStyle.NONE
+    fade_in_duration: float = 0.2
+    fade_out_duration: float = 0.2
+    
+    # Background box
+    background_box: bool = False
+    box_padding: int = 10
+    box_opacity: float = 0.8
+    
+    # Stroke/border
+    border_style: int = 1  # 0=outline+shadow, 1=opaque box, 2=no shadow, 3=transparent box
+    
+    # TikTok-style presets
+    all_caps: bool = True
+    word_wrap: bool = True
+    max_line_length: int = 30
     
     def to_ass_style(self, style_name: str) -> str:
-        """Convert speaker style to ASS format style string."""
+        """Convert speaker style to comprehensive ASS format style string."""
         alignment = self.position.value
         bold_flag = 1 if self.bold else 0
         italic_flag = 1 if self.italic else 0
+        underline_flag = 1 if self.underline else 0
+        strikeout_flag = 1 if self.strikeout else 0
         
-        return (
-            f"Style: {style_name},{self.font_family},{self.font_size},"
-            f"{self.color},&H000000FF,{self.outline_color},{self.shadow_color},"
-            f"{bold_flag},{italic_flag},0,0,100,100,0,0,1,"
-            f"{self.outline_width},{self.shadow_distance},{alignment},10,10,30,1"
+        # Get font name from enum
+        font_name = self.font_family.value
+        
+        # Handle transparent colors
+        primary_color = "&H00000000" if self.primary_color == "transparent" else self.primary_color
+        outline_color = "&H00000000" if self.outline_color == "transparent" else self.outline_color
+        shadow_color = "&H00000000" if self.shadow_color == "transparent" else self.shadow_color
+        background_color = "&H00000000" if self.background_color == "transparent" else self.background_color
+        
+        # ASS format: PrimaryColour, SecondaryColour, OutlineColour, BackColour
+        style_line = (
+            f"Style: {style_name},{font_name},{self.font_size},"
+            f"{primary_color},{primary_color},{outline_color},{background_color},"
+            f"{bold_flag},{italic_flag},{underline_flag},{strikeout_flag},"
+            f"{self.scale_x},{self.scale_y},{self.letter_spacing},{self.rotation},"
+            f"{self.border_style},{self.outline_width},{self.shadow_distance},"
+            f"{alignment},{self.margin_left},{self.margin_right},{self.margin_vertical},1"
         )
+        
+        print(f"DEBUG: Generated ASS style for {style_name}: {style_line}")
+        return style_line
+    
+    def apply_text_effect(self) -> Dict[str, float]:
+        """Apply specific text effects based on chosen effect type."""
+        effects = {}
+        
+        if self.text_effect == TextEffect.GLOW:
+            effects.update({
+                "outline_width": 5.0,
+                "shadow_distance": 0.0,
+                "outline_color": self.primary_color,
+            })
+        elif self.text_effect == TextEffect.SHADOW:
+            effects.update({
+                "outline_width": 0.0,
+                "shadow_distance": 4.0,
+            })
+        elif self.text_effect == TextEffect.OUTLINE:
+            effects.update({
+                "outline_width": self.outline_width,
+                "shadow_distance": 1.0,
+            })
+        elif self.text_effect == TextEffect.OUTLINE_GLOW:
+            effects.update({
+                "outline_width": self.outline_width + 2.0,
+                "shadow_distance": 0.0,
+            })
+        elif self.text_effect == TextEffect.DOUBLE_OUTLINE:
+            effects.update({
+                "outline_width": self.outline_width * 1.5,
+                "shadow_distance": 2.0,
+            })
+        elif self.text_effect == TextEffect.DROP_SHADOW:
+            effects.update({
+                "outline_width": 2.0,
+                "shadow_distance": 6.0,
+            })
+        
+        return effects
 
 @dataclass 
 class SubtitleConfig:
@@ -78,9 +211,9 @@ def create_default_config() -> SubtitleConfig:
         max_words_per_subtitle=4,
         min_words_per_subtitle=1,
         default_style=SpeakerStyle(
-            font_family="Arial",
+            font_family=FontFamily.ARIAL,
             font_size=30,
-            color="&H00FFFFFF",
+            primary_color="&H00FFFFFF",
             position=SubtitlePosition.BOTTOM_CENTER
         )
     )
@@ -110,6 +243,23 @@ def generate_random_colors(num_speakers: int) -> List[str]:
     
     return colors[:num_speakers]
 
+def hex_to_ass_color(hex_color: str) -> str:
+    """Convert hex color (#RRGGBB) to ASS format (&H00BBGGRR)."""
+    if hex_color == 'transparent' or hex_color == '':
+        return 'transparent'
+    
+    if hex_color.startswith('#') and len(hex_color) == 7:
+        r = hex_color[1:3]
+        g = hex_color[3:5]
+        b = hex_color[5:7]
+        return f"&H00{b}{g}{r}".upper()
+    
+    # If already in ASS format, return as is
+    if hex_color.startswith('&H'):
+        return hex_color
+    
+    return "&H00FFFFFF"  # Default to white
+
 def create_auto_speaker_config(detected_speakers: List[str]) -> SubtitleConfig:
     """Create configuration with random colors for detected speakers."""
     config = create_default_config()
@@ -123,9 +273,9 @@ def create_auto_speaker_config(detected_speakers: List[str]) -> SubtitleConfig:
     
     for i, speaker_id in enumerate(detected_speakers):
         style = SpeakerStyle(
-            font_family="Arial",
+            font_family=FontFamily.ARIAL,
             font_size=32,  # Slightly larger for better visibility
-            color=colors[i],
+            primary_color=colors[i],
             position=SubtitlePosition.BOTTOM_CENTER,
             bold=True,  # Bold for better visibility
             outline_width=3,  # Thicker outline for contrast
@@ -134,6 +284,139 @@ def create_auto_speaker_config(detected_speakers: List[str]) -> SubtitleConfig:
         print(f"DEBUG: Assigned {colors[i]} color to {speaker_id}")
     
     return config
+
+def create_viral_preset_styles() -> Dict[str, SpeakerStyle]:
+    """Create preset styles for viral video content."""
+    presets = {}
+    
+    # TikTok Classic (Impact font, white text, black outline)
+    presets["tiktok_classic"] = SpeakerStyle(
+        font_family=FontFamily.IMPACT,
+        font_size=52,
+        primary_color="&H00FFFFFF",  # White
+        outline_color="&H00000000",  # Black
+        outline_width=4.0,
+        text_effect=TextEffect.OUTLINE,
+        position=SubtitlePosition.BOTTOM_CENTER,
+        all_caps=True,
+        bold=True
+    )
+    
+    # YouTube Viral (Bold Arial Black, bright colors)
+    presets["youtube_viral"] = SpeakerStyle(
+        font_family=FontFamily.ARIAL_BLACK,
+        font_size=48,
+        primary_color="&H0000FFFF",  # Yellow
+        outline_color="&H00000000",  # Black
+        outline_width=5.0,
+        text_effect=TextEffect.DOUBLE_OUTLINE,
+        position=SubtitlePosition.BOTTOM_CENTER,
+        all_caps=True,
+        bold=True
+    )
+    
+    # Instagram Reel (Modern sans-serif with glow)
+    presets["instagram_reel"] = SpeakerStyle(
+        font_family=FontFamily.MONTSERRAT_BLACK,
+        font_size=44,
+        primary_color="&H00FFFFFF",  # White
+        outline_color="&H00FF00FF",  # Magenta
+        outline_width=3.0,
+        text_effect=TextEffect.GLOW,
+        position=SubtitlePosition.MIDDLE_CENTER,
+        all_caps=False,
+        bold=True
+    )
+    
+    # Podcast Style (Clean, readable)
+    presets["podcast_clean"] = SpeakerStyle(
+        font_family=FontFamily.LATO_BLACK,
+        font_size=40,
+        primary_color="&H00FFFFFF",  # White
+        outline_color="&H80000000",  # Semi-transparent black
+        outline_width=2.0,
+        text_effect=TextEffect.SHADOW,
+        position=SubtitlePosition.BOTTOM_CENTER,
+        all_caps=False,
+        bold=True,
+        background_box=True,
+        box_opacity=0.7
+    )
+    
+    # Gaming/Streamer (Bold with effects)
+    presets["gaming_streamer"] = SpeakerStyle(
+        font_family=FontFamily.BEBAS_NEUE,
+        font_size=56,
+        primary_color="&H0000FF00",  # Green
+        outline_color="&H00000000",  # Black
+        shadow_color="&H80008000",  # Dark green shadow
+        outline_width=4.0,
+        shadow_distance=3.0,
+        text_effect=TextEffect.OUTLINE_GLOW,
+        position=SubtitlePosition.TOP_CENTER,
+        all_caps=True,
+        bold=True
+    )
+    
+    # Minimalist (Simple, elegant)
+    presets["minimalist"] = SpeakerStyle(
+        font_family=FontFamily.HELVETICA,
+        font_size=36,
+        primary_color="&H00F0F0F0",  # Light gray
+        outline_color="&H00404040",  # Dark gray
+        outline_width=1.5,
+        text_effect=TextEffect.OUTLINE,
+        position=SubtitlePosition.BOTTOM_CENTER,
+        all_caps=False,
+        bold=False
+    )
+    
+    # News/Documentary (Professional)
+    presets["news_documentary"] = SpeakerStyle(
+        font_family=FontFamily.ARIAL,
+        font_size=38,
+        primary_color="&H00FFFFFF",  # White
+        outline_color="&H00000000",  # Black
+        outline_width=2.0,
+        text_effect=TextEffect.OUTLINE,
+        position=SubtitlePosition.BOTTOM_CENTER,
+        all_caps=False,
+        bold=True,
+        background_box=True,
+        background_color="&H80000000",  # Semi-transparent black
+        box_opacity=0.8
+    )
+    
+    # Retro/Vintage (Stylized)
+    presets["retro_vintage"] = SpeakerStyle(
+        font_family=FontFamily.ANTON,
+        font_size=50,
+        primary_color="&H0000FFFF",  # Yellow
+        outline_color="&H00800080",  # Purple
+        outline_width=6.0,
+        text_effect=TextEffect.DOUBLE_OUTLINE,
+        position=SubtitlePosition.MIDDLE_CENTER,
+        all_caps=True,
+        bold=True,
+        rotation=2.0  # Slight tilt
+    )
+    
+    return presets
+
+def get_viral_color_palette() -> List[str]:
+    """Get popular colors for viral video content in ASS format."""
+    return [
+        "&H00FFFFFF",  # White (classic)
+        "&H0000FFFF",  # Yellow (attention-grabbing)
+        "&H0000FF00",  # Green (gaming/tech)
+        "&H00FF0000",  # Blue (professional)
+        "&H00FF00FF",  # Magenta (trendy)
+        "&H0000FF80",  # Lime (energetic)
+        "&H00FF8000",  # Pink (playful)
+        "&H004080FF",  # Orange (warm)
+        "&H008000FF",  # Purple (creative)
+        "&H00FFFF00",  # Cyan (cool)
+    ]
 
 def create_multi_speaker_config(speaker_configs: List[Dict]) -> SubtitleConfig:
     """Create configuration for multiple speakers from web interface data.
@@ -169,9 +452,9 @@ def create_multi_speaker_config(speaker_configs: List[Dict]) -> SubtitleConfig:
             position = SubtitlePosition.BOTTOM_CENTER
         
         style = SpeakerStyle(
-            font_family=speaker_config.get('font_family', 'Arial'),
+            font_family=FontFamily.ARIAL,  # Use enum
             font_size=speaker_config.get('font_size', 30),
-            color=ass_color,
+            primary_color=ass_color,
             position=position,
             bold=speaker_config.get('bold', False),
             italic=speaker_config.get('italic', False)

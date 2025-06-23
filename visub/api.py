@@ -10,7 +10,11 @@ import json
 from typing import Dict, List, Optional, Union
 from pathlib import Path
 
-from .config import SubtitleConfig, SpeakerStyle, SubtitlePosition, create_multi_speaker_config, create_auto_speaker_config
+from .config import (
+    SubtitleConfig, SpeakerStyle, SubtitlePosition, FontFamily, TextEffect, AnimationStyle,
+    create_multi_speaker_config, create_auto_speaker_config, create_viral_preset_styles, 
+    get_viral_color_palette, hex_to_ass_color
+)
 from .transcribe import word_transcribe
 from .cli import get_audio, get_subtitles
 
@@ -83,12 +87,24 @@ class VisubAPI:
             print(f"DEBUG: Detected speakers: {detected_speakers}")
             print(f"DEBUG: Total speakers found: {len(detected_speakers)}")
             
-            # If speakers were detected, use auto-config with random colors
-            if detected_speakers:
-                print("DEBUG: Creating auto speaker config with random colors for detected speakers")
-                config = create_auto_speaker_config(list(detected_speakers))
-                config.max_words_per_subtitle = subtitle_config.get('max_words', 4)
-                config.output_srt = subtitle_config.get('output_srt', False)
+            # Only use auto-config with random colors if no custom speaker styles were provided
+            if not config.speaker_styles:
+                if detected_speakers:
+                    print("DEBUG: No custom speaker styles provided, creating auto speaker config with random colors")
+                    auto_config = create_auto_speaker_config(list(detected_speakers))
+                    config.speaker_styles = auto_config.speaker_styles
+                else:
+                    print("DEBUG: No speakers detected and no custom styles, using default styling")
+            else:
+                print(f"DEBUG: Using provided custom speaker styles for speakers: {list(config.speaker_styles.keys())}")
+                if detected_speakers:
+                    print(f"DEBUG: Detected speakers in audio: {detected_speakers}")
+                    # Check if any detected speakers match our custom styles
+                    matching_speakers = [s for s in detected_speakers if s in config.speaker_styles]
+                    if matching_speakers:
+                        print(f"DEBUG: Found matching custom styles for speakers: {matching_speakers}")
+                    else:
+                        print("DEBUG: No detected speakers match custom style IDs - will use first custom style as fallback")
         
         # Generate subtitles
         subtitle_paths = get_subtitles(audio_paths, output_dir, transcribe_func, config)
@@ -144,12 +160,16 @@ class VisubAPI:
             "speakers": [
                 {
                     "speaker_id": "SPEAKER_00",
-                    "font_family": "Arial",
-                    "font_size": 30,
-                    "color": "#FFFFFF",
+                    "font_family": "Impact",
+                    "font_size": 48,
+                    "primary_color": "&H00FFFFFF",
+                    "outline_color": "&H00000000",
                     "position": "bottom_center",
-                    "bold": false,
-                    "italic": false
+                    "bold": true,
+                    "italic": false,
+                    "text_effect": "outline",
+                    "outline_width": 3.0,
+                    ...
                 }
             ]
         }
@@ -163,9 +183,116 @@ class VisubAPI:
         # Parse speaker configurations
         speakers = config_dict.get('speakers', [])
         if speakers:
-            config = create_multi_speaker_config(speakers)
-            config.max_words_per_subtitle = config_dict.get('max_words', 4)
-            config.output_srt = config_dict.get('output_srt', False)
+            print(f"DEBUG: Parsing {len(speakers)} custom speaker configurations")
+            for speaker_config in speakers:
+                speaker_id = speaker_config.get('speaker_id', 'default')
+                
+                # Convert frontend format to backend format with safer enum handling
+                def safe_font_family(font_name):
+                    font_map = {
+                        'Impact': FontFamily.IMPACT,
+                        'Arial Black': FontFamily.ARIAL_BLACK,
+                        'Bebas Neue': FontFamily.BEBAS_NEUE,
+                        'Montserrat Black': FontFamily.MONTSERRAT_BLACK,
+                        'Oswald': FontFamily.OSWALD,
+                        'Roboto Black': FontFamily.ROBOTO_BLACK,
+                        'Anton': FontFamily.ANTON,
+                        'Barlow': FontFamily.BARLOW,
+                        'Lato Black': FontFamily.LATO_BLACK,
+                        'Open Sans': FontFamily.OPEN_SANS_BOLD,
+                        'Nunito Black': FontFamily.NUNITO_BLACK,
+                        'Arial': FontFamily.ARIAL,
+                        'Helvetica': FontFamily.HELVETICA
+                    }
+                    return font_map.get(font_name, FontFamily.IMPACT)
+                
+                def safe_position(pos_name):
+                    pos_map = {
+                        'bottom_left': SubtitlePosition.BOTTOM_LEFT,
+                        'bottom_center': SubtitlePosition.BOTTOM_CENTER,
+                        'bottom_right': SubtitlePosition.BOTTOM_RIGHT,
+                        'middle_left': SubtitlePosition.MIDDLE_LEFT,
+                        'middle_center': SubtitlePosition.MIDDLE_CENTER,
+                        'middle_right': SubtitlePosition.MIDDLE_RIGHT,
+                        'top_left': SubtitlePosition.TOP_LEFT,
+                        'top_center': SubtitlePosition.TOP_CENTER,
+                        'top_right': SubtitlePosition.TOP_RIGHT
+                    }
+                    return pos_map.get(pos_name, SubtitlePosition.BOTTOM_CENTER)
+                
+                def safe_text_effect(effect_name):
+                    effect_map = {
+                        'none': TextEffect.NONE,
+                        'glow': TextEffect.GLOW,
+                        'shadow': TextEffect.SHADOW,
+                        'outline': TextEffect.OUTLINE,
+                        'outline_glow': TextEffect.OUTLINE_GLOW,
+                        'double_outline': TextEffect.DOUBLE_OUTLINE,
+                        'drop_shadow': TextEffect.DROP_SHADOW
+                    }
+                    return effect_map.get(effect_name, TextEffect.OUTLINE)
+                
+                def safe_animation(anim_name):
+                    anim_map = {
+                        'none': AnimationStyle.NONE,
+                        'fade_in': AnimationStyle.FADE_IN,
+                        'slide_up': AnimationStyle.SLIDE_UP,
+                        'scale_in': AnimationStyle.SCALE_IN,
+                        'type_writer': AnimationStyle.TYPE_WRITER,
+                        'bounce': AnimationStyle.BOUNCE,
+                        'pulse': AnimationStyle.PULSE
+                    }
+                    return anim_map.get(anim_name, AnimationStyle.NONE)
+                
+                style = SpeakerStyle(
+                    font_family=safe_font_family(speaker_config.get('font_family', 'Impact')),
+                    font_size=speaker_config.get('font_size', 48),
+                    font_weight=speaker_config.get('font_weight', 'bold'),
+                    primary_color=hex_to_ass_color(speaker_config.get('primary_color', '&H00FFFFFF')),
+                    outline_color=hex_to_ass_color(speaker_config.get('outline_color', '&H00000000')),
+                    shadow_color=hex_to_ass_color(speaker_config.get('shadow_color', '&H80000000')),
+                    background_color=hex_to_ass_color(speaker_config.get('background_color', '&H00000000')),
+                    position=safe_position(speaker_config.get('position', 'bottom_center')),
+                    margin_left=speaker_config.get('margin_left', 20),
+                    margin_right=speaker_config.get('margin_right', 20),
+                    margin_vertical=speaker_config.get('margin_vertical', 40),
+                    bold=speaker_config.get('bold', True),
+                    italic=speaker_config.get('italic', False),
+                    underline=speaker_config.get('underline', False),
+                    strikeout=speaker_config.get('strikeout', False),
+                    outline_width=speaker_config.get('outline_width', 3.0),
+                    shadow_distance=speaker_config.get('shadow_distance', 2.0),
+                    text_effect=safe_text_effect(speaker_config.get('text_effect', 'outline')),
+                    letter_spacing=speaker_config.get('letter_spacing', 0.0),
+                    line_spacing=speaker_config.get('line_spacing', 1.0),
+                    scale_x=speaker_config.get('scale_x', 100.0),
+                    scale_y=speaker_config.get('scale_y', 100.0),
+                    rotation=speaker_config.get('rotation', 0.0),
+                    animation=safe_animation(speaker_config.get('animation', 'none')),
+                    fade_in_duration=speaker_config.get('fade_in_duration', 0.2),
+                    fade_out_duration=speaker_config.get('fade_out_duration', 0.2),
+                    background_box=speaker_config.get('background_box', False),
+                    box_padding=speaker_config.get('box_padding', 10),
+                    box_opacity=speaker_config.get('box_opacity', 0.8),
+                    border_style=speaker_config.get('border_style', 1),
+                    all_caps=speaker_config.get('all_caps', True),
+                    word_wrap=speaker_config.get('word_wrap', True),
+                    max_line_length=speaker_config.get('max_line_length', 30)
+                )
+                
+                config.add_speaker_style(speaker_id, style)
+                print(f"DEBUG: Added custom style for {speaker_id}: {style.font_family.value}, {style.primary_color}")
+            
+            # If speaker detection is disabled but custom styles exist, use first custom style as default
+            if not config.enable_speaker_detection and config.speaker_styles:
+                first_speaker_id = list(config.speaker_styles.keys())[0]
+                first_style = config.speaker_styles[first_speaker_id]
+                config.default_style = first_style
+                print(f"DEBUG: Speaker detection disabled, using custom style {first_speaker_id} as default")
+            elif config.enable_speaker_detection and config.speaker_styles:
+                print(f"DEBUG: Speaker detection enabled with custom styles, keeping default style unchanged for fallback")
+        else:
+            print("DEBUG: No custom speaker styles provided")
         
         return config
     
@@ -205,6 +332,94 @@ class VisubAPI:
             {"value": "top_center", "label": "Top Center"},
             {"value": "top_right", "label": "Top Right"}
         ]
+    
+    def get_viral_fonts(self) -> List[Dict]:
+        """Get list of fonts popular for viral video content."""
+        return [
+            {"value": font.name.lower(), "label": font.value, "category": "viral"}
+            for font in FontFamily
+        ]
+    
+    def get_text_effects(self) -> List[Dict]:
+        """Get list of available text effects."""
+        return [
+            {"value": effect.value, "label": effect.value.replace("_", " ").title()}
+            for effect in TextEffect
+        ]
+    
+    def get_animation_styles(self) -> List[Dict]:
+        """Get list of available animation styles."""
+        return [
+            {"value": anim.value, "label": anim.value.replace("_", " ").title()}
+            for anim in AnimationStyle
+        ]
+    
+    def get_preset_styles(self) -> Dict[str, Dict]:
+        """Get preset styling configurations for viral content."""
+        presets = create_viral_preset_styles()
+        result = {}
+        
+        for name, style in presets.items():
+            result[name] = {
+                "name": name.replace("_", " ").title(),
+                "description": self._get_preset_description(name),
+                "preview": {
+                    "font_family": style.font_family.value,
+                    "font_size": style.font_size,
+                    "primary_color": style.primary_color,
+                    "outline_color": style.outline_color,
+                    "text_effect": style.text_effect.value,
+                    "all_caps": style.all_caps,
+                    "bold": style.bold
+                }
+            }
+        
+        return result
+    
+    def get_color_palette(self) -> List[Dict]:
+        """Get popular colors for viral video content."""
+        colors = get_viral_color_palette()
+        color_names = [
+            "White", "Yellow", "Green", "Blue", "Magenta", 
+            "Lime", "Pink", "Orange", "Purple", "Cyan"
+        ]
+        
+        return [
+            {"value": color, "label": name, "hex": self._ass_to_hex(color)}
+            for color, name in zip(colors, color_names)
+        ]
+    
+    def _get_preset_description(self, preset_name: str) -> str:
+        """Get description for preset styles."""
+        descriptions = {
+            "tiktok_classic": "Bold Impact font with black outline - perfect for TikTok",
+            "youtube_viral": "Eye-catching yellow text for maximum attention",
+            "instagram_reel": "Modern style with trendy glow effect",
+            "podcast_clean": "Clean, readable style for long-form content",
+            "gaming_streamer": "High-energy style popular with gamers",
+            "minimalist": "Simple, elegant styling for sophisticated content",
+            "news_documentary": "Professional style with background box",
+            "retro_vintage": "Stylized retro look with unique flair"
+        }
+        return descriptions.get(preset_name, "Custom styling preset")
+    
+    def _ass_to_hex(self, ass_color: str) -> str:
+        """Convert ASS color format to hex for frontend display."""
+        if ass_color.startswith("&H"):
+            # Extract BGR values from format &H00BBGGRR
+            hex_part = ass_color[2:]  # Remove &H
+            if len(hex_part) >= 8:
+                # Skip alpha (first 2 chars) and get BGR values
+                alpha = hex_part[0:2]
+                b = hex_part[2:4]
+                g = hex_part[4:6] 
+                r = hex_part[6:8]
+                return f"#{r}{g}{b}".upper()
+            elif len(hex_part) >= 6:
+                # Handle format without alpha
+                b, g, r = hex_part[0:2], hex_part[2:4], hex_part[4:6]
+                return f"#{r}{g}{b}".upper()
+        return "#FFFFFF"  # Default to white
     
     def validate_config(self, config_dict: Dict) -> Dict:
         """
