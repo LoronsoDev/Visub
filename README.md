@@ -15,6 +15,20 @@ AI-powered web application for generating customizable video subtitles with **ka
 - 🐳 **Docker Ready** - Full containerization for deployment
 - 📱 **Modern UI** - Next.js frontend with shadcn/ui components
 
+## 📖 Technical Documentation
+
+For comprehensive system architecture, Celery & Redis integration details, and development guide, see:
+
+**[📋 Complete Technical Documentation](./TECHNICAL_DOCUMENTATION.md)**
+
+This documentation covers:
+- **System Architecture** - How FastAPI, Celery, and Redis work together
+- **Celery & Redis Deep Dive** - Why these technologies are perfect for video processing
+- **Complete Data Flow** - From upload to download with real-time status updates
+- **API Reference** - All endpoints with examples
+- **Deployment & Scaling** - Production-ready Docker setup and horizontal scaling
+- **Quick Start Guide** - Get up and running in minutes
+
 ## Development Setup
 
 ### Prerequisites

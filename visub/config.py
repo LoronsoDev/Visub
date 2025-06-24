@@ -207,19 +207,10 @@ class SubtitleConfig:
         """Generate all ASS style definitions."""
         styles = [self.default_style.to_ass_style("Default")]
         
-        # Add highlight style for default if word highlighting is enabled
-        if self.enable_word_highlighting and hasattr(self.default_style, 'enable_word_highlighting') and self.default_style.enable_word_highlighting:
-            highlight_style = self._create_highlight_style(self.default_style)
-            styles.append(highlight_style.to_ass_style("DefaultHighlight"))
-        
+        # Only add regular speaker styles - highlighting is handled with inline tags
         for speaker_id, style in self.speaker_styles.items():
             style_name = f"Speaker_{speaker_id}"
             styles.append(style.to_ass_style(style_name))
-            
-            # Add highlight style for each speaker if word highlighting is enabled
-            if self.enable_word_highlighting and hasattr(style, 'enable_word_highlighting') and style.enable_word_highlighting:
-                highlight_style = self._create_highlight_style(style)
-                styles.append(highlight_style.to_ass_style(f"{style_name}Highlight"))
             
         return styles
     
@@ -235,6 +226,7 @@ class SubtitleConfig:
             highlight_style.outline_color = base_style.highlight_outline_color
         if hasattr(base_style, 'highlight_bold'):
             highlight_style.bold = base_style.highlight_bold
+        
             
         return highlight_style
 
@@ -247,7 +239,9 @@ def create_default_config() -> SubtitleConfig:
             font_family=FontFamily.ARIAL,
             font_size=30,
             primary_color="&H00FFFFFF",
-            position=SubtitlePosition.MIDDLE_CENTER
+            position=SubtitlePosition.MIDDLE_CENTER,
+            animation=AnimationStyle.NONE,
+            highlight_color="&H0000FFFF"  # Yellow highlight by default
         )
     )
 
@@ -312,6 +306,8 @@ def create_auto_speaker_config(detected_speakers: List[str]) -> SubtitleConfig:
             position=SubtitlePosition.MIDDLE_CENTER,
             bold=True,  # Bold for better visibility
             outline_width=3,  # Thicker outline for contrast
+            animation=AnimationStyle.NONE,  # No animation by default
+            highlight_color="&H0000FFFF"  # Yellow highlight by default
         )
         config.add_speaker_style(speaker_id, style)
         print(f"DEBUG: Assigned {colors[i]} color to {speaker_id}")

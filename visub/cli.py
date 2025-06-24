@@ -8,6 +8,42 @@ from .transcribe import word_transcribe
 from .config import SubtitleConfig, create_default_config
 from datetime import timedelta
 
+def get_animation_tags(animation_type, style):
+    """Generate ASS animation tags based on animation type and style settings."""
+    if animation_type == 'none':
+        return ""
+    
+    fade_in_duration = getattr(style, 'fade_in_duration', 0.2) * 1000  # Convert to milliseconds
+    fade_out_duration = getattr(style, 'fade_out_duration', 0.2) * 1000
+    
+    if animation_type == 'fade_in':
+        return f"{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    
+    elif animation_type == 'slide_up':
+        # Slide up animation using \\move
+        return f"{{\\move(320,400,320,350,0,{int(fade_in_duration)})}}{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    
+    elif animation_type == 'scale_in':
+        # Scale in animation using \\fscx and \\fscy
+        return f"{{\\t(0,{int(fade_in_duration)},\\fscx100\\fscy100)}}{{\\fscx50\\fscy50}}{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    
+    elif animation_type == 'bounce':
+        # Bounce effect using multiple \\t transforms
+        bounce_time = int(fade_in_duration / 3)
+        return f"{{\\t(0,{bounce_time},\\fscx120\\fscy120)}}{{\\t({bounce_time},{bounce_time*2},\\fscx90\\fscy90)}}{{\\t({bounce_time*2},{int(fade_in_duration)},\\fscx100\\fscy100)}}{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    
+    elif animation_type == 'pulse':
+        # Pulse animation
+        pulse_time = int(fade_in_duration / 2)
+        return f"{{\\t(0,{pulse_time},\\fscx110\\fscy110)}}{{\\t({pulse_time},{int(fade_in_duration)},\\fscx100\\fscy100)}}{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    
+    elif animation_type == 'type_writer':
+        # Typewriter effect (this is complex and might need different implementation)
+        return f"{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    
+    # Default fallback
+    return f"{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -138,24 +174,64 @@ def get_subtitles(audio_paths: dict, output_dir: str, transcribe: callable, conf
             if "words" in segment:
                 words_in_segment = segment["words"]
                 
-                # Group words into chunks of max_words_per_subtitle
-                for i in range(0, len(words_in_segment), config.max_words_per_subtitle):
-                    word_group = words_in_segment[i:i + config.max_words_per_subtitle]
+                # Check if we're using full sentence mode
+                if config.max_words_per_subtitle >= 999:  # Full sentence mode
+                    # Group words by sentence boundaries
+                    current_sentence = []
                     
-                    if word_group:  # Make sure group is not empty
-                        # Get speaker information from first word in group
-                        speaker_id = word_group[0].get("speaker", None)
+                    for word in words_in_segment:
+                        current_sentence.append(word)
                         
-                        # Combine text from all words in group
-                        combined_text = " ".join(word["word"] for word in word_group)
+                        # Check if this word ends a sentence
+                        word_text = word["word"].strip()
+                        if word_text.endswith(('.', '!', '?', ':', ';')) or len(current_sentence) >= 50:  # Max 50 words per sentence as safety
+                            if current_sentence:
+                                # Get speaker information from first word in sentence
+                                speaker_id = current_sentence[0].get("speaker", None)
+                                
+                                # Combine text from all words in sentence
+                                combined_text = " ".join(w["word"] for w in current_sentence)
+                                
+                                subtitle_groups.append({
+                                    "start": current_sentence[0]["start"],
+                                    "end": current_sentence[-1]["end"],
+                                    "text": combined_text,
+                                    "speaker": speaker_id,
+                                    "words": current_sentence  # Preserve individual word data for highlighting
+                                })
+                                current_sentence = []
+                    
+                    # Handle any remaining words in incomplete sentence
+                    if current_sentence:
+                        speaker_id = current_sentence[0].get("speaker", None)
+                        combined_text = " ".join(w["word"] for w in current_sentence)
                         
                         subtitle_groups.append({
-                            "start": word_group[0]["start"],
-                            "end": word_group[-1]["end"],
+                            "start": current_sentence[0]["start"],
+                            "end": current_sentence[-1]["end"],
                             "text": combined_text,
                             "speaker": speaker_id,
-                            "words": word_group  # Preserve individual word data for highlighting
+                            "words": current_sentence
                         })
+                else:
+                    # Group words into chunks of max_words_per_subtitle
+                    for i in range(0, len(words_in_segment), config.max_words_per_subtitle):
+                        word_group = words_in_segment[i:i + config.max_words_per_subtitle]
+                        
+                        if word_group:  # Make sure group is not empty
+                            # Get speaker information from first word in group
+                            speaker_id = word_group[0].get("speaker", None)
+                            
+                            # Combine text from all words in group
+                            combined_text = " ".join(word["word"] for word in word_group)
+                            
+                            subtitle_groups.append({
+                                "start": word_group[0]["start"],
+                                "end": word_group[-1]["end"],
+                                "text": combined_text,
+                                "speaker": speaker_id,
+                                "words": word_group  # Preserve individual word data for highlighting
+                            })
 
         # Write ASS file with multiple styles
         with open(ass_path, "w", encoding="utf-8") as f:
@@ -224,8 +300,6 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
                     current_style.enable_word_highlighting and
                     "words" in subtitle):
                     
-                    print(f"DEBUG: Adding karaoke-style word highlighting for subtitle")
-                    
                     # Create karaoke-style highlighting using exact WhisperX word timings
                     words = subtitle["words"]
                     
@@ -263,23 +337,52 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
                             "original_end": word_data["end"]
                         })
                     
+                    # Get animation tags for subtitle entrance effect
+                    animation_tags = ""
+                    if hasattr(current_style, 'animation') and current_style.animation != 'none':
+                        # Animation applied only to the first word for entrance effect, then word highlighting continues
+                        animation_tags = get_animation_tags(current_style.animation, current_style)
+                    
                     # Second pass: create subtitle lines with perfectly seamless timing
                     for word_index, timing in enumerate(adjusted_timings):
                         word_start = ass_time(timing["start"])
                         word_end = ass_time(timing["end"])
                         
-                        # Create subtitle text showing full chunk with current word in bold and white
+                        # Get highlight styling from current style configuration
+                        highlight_color = getattr(current_style, 'highlight_color', '&H0000FFFF')
+                        highlight_bold = getattr(current_style, 'highlight_bold', True)
+                        
+                        # Build the highlight formatting tags
+                        highlight_start_tags = ""
+                        highlight_end_tags = ""
+                        
+                        # Add bold formatting if enabled
+                        if highlight_bold:
+                            highlight_start_tags += "{\\b1}"
+                            highlight_end_tags = "{\\b0}" + highlight_end_tags
+                        
+                        # Add color formatting
+                        highlight_start_tags += f"{{\\c{highlight_color}}}"
+                        highlight_end_tags = f"{{\\c{default_color}}}" + highlight_end_tags
+                        
+                        
+                        # Create subtitle text showing full chunk with current word highlighted
                         highlighted_text = " ".join(
-                            f"{{\\b1}}{{\\c&HFFFFFF&}}{word_text}{{\\c{default_color}&}}{{\\b0}}" if i == word_index else word_text
+                            f"{highlight_start_tags}{word_text}{highlight_end_tags}" if i == word_index else word_text
                             for i, word_text in processed_words
                         )
                         
-                        # Write subtitle line for this word with forced seamless timing
-                        f.write(f"Dialogue: 0,{word_start},{word_end},{style_name},,0,0,0,,{highlighted_text}\n")
-                        print(f"DEBUG: Word '{timing['word']}' forced timing: {word_start}-{word_end} (was {timing['original_start']:.3f}-{timing['original_end']:.3f})")
+                        # Write subtitle line for this word with forced seamless timing (add animation only to first word)
+                        final_animation_tags = animation_tags if word_index == 0 else ""
+                        f.write(f"Dialogue: 0,{word_start},{word_end},{style_name},,0,0,0,,{final_animation_tags}{highlighted_text}\n")
                 else:
                     # Write the base subtitle line without highlighting
-                    f.write(f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}\n")
+                    # Add animation effects if enabled
+                    animation_tags = ""
+                    if hasattr(current_style, 'animation') and current_style.animation != 'none':
+                        animation_tags = get_animation_tags(current_style.animation, current_style)
+                    
+                    f.write(f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{animation_tags}{text}\n")
 
         # Write SRT file if requested
         if config.output_srt and srt_path:

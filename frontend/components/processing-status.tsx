@@ -88,7 +88,7 @@ export function ProcessingStatus({ jobId, onComplete }: ProcessingStatusProps) {
       </Card>
 
       <div className="text-center space-y-2">
-        <h3 className="font-medium">What's happening?</h3>
+        <h3 className="font-medium">What&apos;s happening?</h3>
         <div className="text-sm text-muted-foreground space-y-1">
           <p>🎵 Extracting audio from your video</p>
           <p>🤖 AI transcribing speech with word-level timing</p>

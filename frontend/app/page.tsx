@@ -30,7 +30,7 @@ export type SpeakerConfig = {
 }
 
 export type SubtitleConfigType = {
-  max_words: number
+  max_words: number | "full_sentence"
   output_srt: boolean
   enable_speaker_detection: boolean
   enable_word_highlighting?: boolean

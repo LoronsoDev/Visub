@@ -56,7 +56,7 @@ export function Results({ jobStatus, onStartOver }: ResultsProps) {
         <CardHeader>
           <CardTitle>Download Files</CardTitle>
           <CardDescription>
-            Choose which files you'd like to download
+            Choose which files you&apos;d like to download
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

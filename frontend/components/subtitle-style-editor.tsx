@@ -214,7 +214,7 @@ export function SubtitleStyleEditor({
       fontStyle: style.italic ? 'italic' : 'normal',
       color: assColorToHex(style.primary_color),
       textShadow: textShadow.replace(/\s+/g, ' ').trim(),
-      textTransform: style.all_caps ? 'uppercase' : 'none',
+      textTransform: (style.all_caps ? 'uppercase' : 'none') as 'none' | 'uppercase',
       letterSpacing: `${style.letter_spacing}px`,
       lineHeight: style.line_spacing,
       transform: `scale(${style.scale_x / 100}, ${style.scale_y / 100}) rotate(${style.rotation}deg)`,
@@ -555,7 +555,7 @@ export function SubtitleStyleEditor({
                 <select
                   value={style.position}
                   onChange={(e) => updateStyle({ position: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border border-input rounded"
+                  className="w-full px-2 py-1 pr-6 text-sm border border-input rounded"
                 >
                   {resources.positions.map(pos => (
                     <option key={pos.value} value={pos.value}>
@@ -735,7 +735,7 @@ export function SubtitleStyleEditor({
               <select
                 value={style.text_effect}
                 onChange={(e) => updateStyle({ text_effect: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-md"
+                className="w-full px-3 py-2 pr-8 border border-input rounded-md"
               >
                 {resources.effects.map(effect => (
                   <option key={effect.value} value={effect.value}>
@@ -811,7 +811,7 @@ export function SubtitleStyleEditor({
               <select
                 value={style.animation}
                 onChange={(e) => updateStyle({ animation: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-md"
+                className="w-full px-3 py-2 pr-8 border border-input rounded-md"
               >
                 {resources.animations.map(anim => (
                   <option key={anim.value} value={anim.value}>
@@ -819,6 +819,66 @@ export function SubtitleStyleEditor({
                   </option>
                 ))}
               </select>
+              {style.animation !== 'none' && style.enable_word_highlighting && (
+                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded mt-2">
+                  <strong>Tip:</strong> Animation plays once when the subtitle appears, then word highlighting takes over for the karaoke effect.
+                </div>
+              )}
+            </div>
+
+            {/* Word Highlighting (Karaoke) */}
+            <div className="space-y-4 border-t pt-4">
+              <h4 className="font-medium text-sm text-gray-700">Word Highlighting (Karaoke Style)</h4>
+              
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={style.enable_word_highlighting}
+                  onChange={(e) => updateStyle({ enable_word_highlighting: e.target.checked })}
+                />
+                <span className="text-sm">Enable word-by-word highlighting</span>
+              </label>
+              
+              {style.enable_word_highlighting && style.animation !== 'none' && (
+                <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
+                  <strong>Perfect combo!</strong> Your subtitle will animate in with &quot;{style.animation.replace('_', ' ')}&quot; and then highlight each word as it&apos;s spoken.
+                </div>
+              )}
+
+              {style.enable_word_highlighting && (
+                <div className="ml-6 space-y-4">
+                  {/* Highlight Color */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Highlight Color</label>
+                    <div className="flex flex-wrap gap-1">
+                      {resources.colors.map(color => (
+                        <button
+                          key={color.value}
+                          onClick={() => updateStyle({ highlight_color: color.value })}
+                          className={`w-6 h-6 rounded border-2 ${
+                            style.highlight_color === color.value ? 'border-black ring-1 ring-blue-400' : 'border-gray-300'
+                          }`}
+                          style={{ backgroundColor: color.hex }}
+                          title={color.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Highlight Style Options */}
+                  <div>
+                    <label className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="checkbox"
+                        checked={style.highlight_bold}
+                        onChange={(e) => updateStyle({ highlight_bold: e.target.checked })}
+                      />
+                      <span className="text-sm">Bold highlighted words</span>
+                    </label>
+                  </div>
+
+                </div>
+              )}
             </div>
           </div>
         )}

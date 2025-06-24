@@ -16,7 +16,7 @@ export function VideoUpload({ onFileSelect }: VideoUploadProps) {
     }
   }, [onFileSelect])
 
-  const { getRootProps, getInputProps, isDragActive, rejectedFiles } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'video/*': ['.mp4', '.avi', '.mov', '.mkv', '.webm']
@@ -62,17 +62,6 @@ export function VideoUpload({ onFileSelect }: VideoUploadProps) {
         </div>
       </div>
 
-      {rejectedFiles && rejectedFiles.length > 0 && (
-        <div className="flex items-center space-x-2 text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          <span className="text-sm">
-            {rejectedFiles[0].errors[0].code === 'file-too-large' 
-              ? 'File is too large. Maximum size is 500MB.'
-              : 'Invalid file type. Please select a video file.'
-            }
-          </span>
-        </div>
-      )}
     </div>
   )
 }

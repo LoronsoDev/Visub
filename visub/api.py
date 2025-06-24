@@ -176,7 +176,9 @@ class VisubAPI:
         """
         config = SubtitleConfig()
         
-        config.max_words_per_subtitle = config_dict.get('max_words', 4)
+        max_words_value = config_dict.get('max_words', 4)
+        # Handle "full_sentence" option - use a large number to represent full sentences
+        config.max_words_per_subtitle = 999 if max_words_value == "full_sentence" else max_words_value
         config.output_srt = config_dict.get('output_srt', False)
         config.enable_speaker_detection = config_dict.get('enable_speaker_detection', False)
         config.enable_word_highlighting = config_dict.get('enable_word_highlighting', True)

@@ -143,19 +143,31 @@ export function SubtitleConfig({
         <CardContent className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Maximum words per subtitle
+              Words per subtitle
             </label>
-            <input
-              type="number"
-              min="1"
-              max="10"
+            <select
               value={subtitleConfig.max_words}
-              onChange={(e) => onSubtitleConfigChange({
-                ...subtitleConfig,
-                max_words: parseInt(e.target.value)
-              })}
-              className="w-full px-3 py-2 border border-input rounded-md"
-            />
+              onChange={(e) => {
+                const value = e.target.value === "full_sentence" ? "full_sentence" : parseInt(e.target.value)
+                onSubtitleConfigChange({
+                  ...subtitleConfig,
+                  max_words: value
+                })
+              }}
+              className="w-full px-3 py-2 pr-8 border border-input rounded-md"
+            >
+              <option value={1}>1 word</option>
+              <option value={2}>2 words</option>
+              <option value={3}>3 words</option>
+              <option value={4}>4 words (recommended)</option>
+              <option value={5}>5 words</option>
+              <option value={6}>6 words</option>
+              <option value={7}>7 words</option>
+              <option value={8}>8 words</option>
+              <option value={9}>9 words</option>
+              <option value={10}>10 words</option>
+              <option value="full_sentence">Full sentence</option>
+            </select>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -295,7 +307,7 @@ export function SubtitleConfig({
                 ...transcriptionConfig,
                 model: e.target.value
               })}
-              className="w-full px-3 py-2 border border-input rounded-md"
+              className="w-full px-3 py-2 pr-8 border border-input rounded-md"
             >
               <option value="tiny">Tiny (fastest)</option>
               <option value="base">Base (recommended)</option>
@@ -313,7 +325,7 @@ export function SubtitleConfig({
                 ...transcriptionConfig,
                 language: e.target.value
               })}
-              className="w-full px-3 py-2 border border-input rounded-md"
+              className="w-full px-3 py-2 pr-8 border border-input rounded-md"
             >
               <option value="auto">Auto-detect</option>
               <option value="en">English</option>
