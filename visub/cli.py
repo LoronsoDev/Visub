@@ -102,17 +102,17 @@ def main():
         return
 
     for path, ass_path in subtitles.items():
-        out_path = os.path.join(output_dir, f"{filename(path)}.mp4")
+        # Preserve original file extension/format to avoid codec licensing issues
+        original_ext = os.path.splitext(path)[1]
+        out_path = os.path.join(output_dir, f"{filename(path)}_subtitled{original_ext}")
 
         print(f"Adding subtitles to {filename(path)}...")
 
         video = ffmpeg.input(path)
         audio = video.audio
 
-        # ffmpeg.concat(
-        #     video.filter('subtitles', srt_path, force_style="OutlineColour=&H40000000,BorderStyle=3"), audio, v=1, a=1
-        # ).output(out_path).run(quiet=True, overwrite_output=True)
-
+        # Apply subtitles - subtitle filter requires reencoding
+        # Preserve original format but must recompute video due to subtitle overlay
         ffmpeg.concat(
             video.filter('subtitles', ass_path), 
             audio, 

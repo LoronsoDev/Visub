@@ -115,13 +115,17 @@ class VisubAPI:
             import ffmpeg
             from .utils import filename
             
-            output_video_path = os.path.join(output_dir, f"{filename(original_path)}.mp4")
+            # Preserve original file extension/format to avoid codec licensing issues
+            original_ext = os.path.splitext(original_path)[1]
+            output_video_path = os.path.join(output_dir, f"{filename(original_path)}_subtitled{original_ext}")
             
             print(f"Adding subtitles to {filename(original_path)}...")
             
             video = ffmpeg.input(original_path)
             audio = video.audio
             
+            # Apply subtitles - subtitle filter requires reencoding
+            # Preserve original format but must recompute video due to subtitle overlay
             ffmpeg.concat(
                 video.filter('subtitles', ass_path), 
                 audio, 
