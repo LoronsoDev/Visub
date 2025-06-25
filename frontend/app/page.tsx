@@ -107,7 +107,8 @@ export default function Home() {
 
       {/* Progress Steps */}
       <div className="flex items-center justify-center mb-8">
-        <div className="flex items-center space-x-4">
+        {/* Desktop: Show all steps */}
+        <div className="hidden md:flex items-center space-x-4">
           {['Upload', 'Configure', 'Process', 'Download'].map((step, index) => {
             const stepNames = ['upload', 'config', 'processing', 'results']
             const currentIndex = stepNames.indexOf(currentStep)
@@ -132,6 +133,52 @@ export default function Home() {
               </div>
             )
           })}
+        </div>
+
+        {/* Mobile: Show compact version with current + next step */}
+        <div className="md:hidden flex items-center space-x-3">
+          {(() => {
+            const steps = ['Upload', 'Configure', 'Process', 'Download']
+            const stepNames = ['upload', 'config', 'processing', 'results']
+            const currentIndex = stepNames.indexOf(currentStep)
+            
+            return (
+              <>
+                {/* Current step */}
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium bg-primary text-primary-foreground">
+                    {currentIndex + 1}
+                  </div>
+                  <span className="ml-2 text-sm text-foreground font-medium">
+                    {steps[currentIndex]}
+                  </span>
+                </div>
+
+                {/* Connector and next step (if not last) */}
+                {currentIndex < 3 && (
+                  <>
+                    <div className="w-8 h-0.5 bg-muted" />
+                    <div className="flex items-center">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium bg-muted text-muted-foreground">
+                        {currentIndex + 2}
+                      </div>
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        {steps[currentIndex + 1]}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Indicator for remaining steps */}
+                {currentIndex < 2 && (
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <span>• • •</span>
+                    <span className="ml-1">{4 - currentIndex - 1} more</span>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       </div>
 
