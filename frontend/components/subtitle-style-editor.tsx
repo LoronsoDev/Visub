@@ -65,6 +65,9 @@ interface SubtitleStyleEditorProps {
   style: SpeakerStyle
   onStyleChange: (speakerId: string, style: SpeakerStyle) => void
   onRemove?: () => void
+  maxWords?: number | string
+  enableWordHighlighting?: boolean
+  enableSpeakerDetection?: boolean
 }
 
 export function SubtitleStyleEditor({ 
@@ -72,11 +75,13 @@ export function SubtitleStyleEditor({
   speakerName, 
   style, 
   onStyleChange, 
-  onRemove 
+  onRemove,
+  maxWords = 4,
+  enableWordHighlighting = true,
+  enableSpeakerDetection = false
 }: SubtitleStyleEditorProps) {
   const [resources, setResources] = useState<StyleResources | null>(null)
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced' | 'effects' | 'presets'>('basic')
-  const [previewText, setPreviewText] = useState('Sample subtitle text')
 
   useEffect(() => {
     // Load styling resources from API
@@ -127,134 +132,6 @@ export function SubtitleStyleEditor({
     })
   }
 
-  const getStylePreview = () => {
-    // Map font family names to CSS font stacks with fallbacks
-    const getFontStack = (fontFamily: string) => {
-      const fontMap: Record<string, string> = {
-        'Impact': 'Impact, "Franklin Gothic Bold", "Helvetica Inserat", "Bitstream Vera Sans Bold", "Arial Black", sans-serif',
-        'Arial Black': '"Arial Black", "Arial Bold", Gadget, sans-serif',
-        'Bebas Neue': '"Bebas Neue", "League Gothic", "Oswald", "Arial Narrow", Arial, sans-serif',
-        'Montserrat Black': '"Montserrat", "Proxima Nova", "Helvetica Neue", Arial, sans-serif',
-        'Oswald': '"Oswald", "Arial Narrow", Arial, sans-serif',
-        'Roboto Black': '"Roboto", "Droid Sans", Arial, sans-serif',
-        'Anton': '"Anton", "Bebas Neue", "Arial Black", Arial, sans-serif',
-        'Barlow': '"Barlow", "Open Sans", Arial, sans-serif',
-        'Lato Black': '"Lato", "Helvetica Neue", Arial, sans-serif',
-        'Open Sans': '"Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif',
-        'Nunito Black': '"Nunito", "Source Sans Pro", Arial, sans-serif',
-        'Arial': 'Arial, Helvetica, sans-serif',
-        'Helvetica': 'Helvetica, Arial, sans-serif'
-      }
-      return fontMap[fontFamily] || fontFamily + ', Arial, sans-serif'
-    }
-
-    const outlineColor = assColorToHex(style.outline_color)
-    const shadowColor = assColorToHex(style.shadow_color)
-    
-    // Create text shadow based on effect type
-    let textShadow = ''
-    switch (style.text_effect) {
-      case 'outline':
-        textShadow = `
-          -1px -1px 0 ${outlineColor},
-          1px -1px 0 ${outlineColor},
-          -1px 1px 0 ${outlineColor},
-          1px 1px 0 ${outlineColor},
-          0 0 4px ${outlineColor}
-        `
-        break
-      case 'glow':
-        textShadow = `
-          0 0 5px ${outlineColor},
-          0 0 10px ${outlineColor},
-          0 0 15px ${outlineColor}
-        `
-        break
-      case 'shadow':
-        textShadow = `${style.shadow_distance}px ${style.shadow_distance}px 4px ${shadowColor}`
-        break
-      case 'outline_glow':
-        textShadow = `
-          -1px -1px 0 ${outlineColor},
-          1px -1px 0 ${outlineColor},
-          -1px 1px 0 ${outlineColor},
-          1px 1px 0 ${outlineColor},
-          0 0 8px ${outlineColor}
-        `
-        break
-      case 'double_outline':
-        textShadow = `
-          -2px -2px 0 ${outlineColor},
-          2px -2px 0 ${outlineColor},
-          -2px 2px 0 ${outlineColor},
-          2px 2px 0 ${outlineColor},
-          -1px -1px 0 ${outlineColor},
-          1px -1px 0 ${outlineColor},
-          -1px 1px 0 ${outlineColor},
-          1px 1px 0 ${outlineColor}
-        `
-        break
-      case 'drop_shadow':
-        textShadow = `
-          -1px -1px 0 ${outlineColor},
-          1px -1px 0 ${outlineColor},
-          -1px 1px 0 ${outlineColor},
-          1px 1px 0 ${outlineColor},
-          ${style.shadow_distance}px ${style.shadow_distance}px 8px ${shadowColor}
-        `
-        break
-      default:
-        textShadow = `2px 2px 4px ${outlineColor}`
-    }
-
-    return {
-      fontFamily: getFontStack(style.font_family),
-      fontSize: `${Math.max(16, style.font_size * 0.4)}px`,
-      fontWeight: style.bold ? '900' : style.font_weight || 'normal',
-      fontStyle: style.italic ? 'italic' : 'normal',
-      color: assColorToHex(style.primary_color),
-      textShadow: textShadow.replace(/\s+/g, ' ').trim(),
-      textTransform: (style.all_caps ? 'uppercase' : 'none') as 'none' | 'uppercase',
-      letterSpacing: `${style.letter_spacing}px`,
-      lineHeight: style.line_spacing,
-      transform: `scale(${style.scale_x / 100}, ${style.scale_y / 100}) rotate(${style.rotation}deg)`,
-      textDecoration: [
-        style.underline ? 'underline' : '',
-        style.strikeout ? 'line-through' : ''
-      ].filter(Boolean).join(' ') || 'none',
-      WebkitTextStroke: style.text_effect === 'outline' ? `${style.outline_width * 0.5}px ${outlineColor}` : 'none',
-      backgroundColor: style.background_box ? `${assColorToHex(style.background_color)}${Math.round(style.box_opacity * 255).toString(16).padStart(2, '0')}` : 'transparent',
-      padding: style.background_box ? `${style.box_padding}px` : '0',
-      borderRadius: style.background_box ? '4px' : '0'
-    }
-  }
-
-  const assColorToHex = (assColor: string): string => {
-    // Handle transparent/invisible color
-    if (assColor === 'transparent' || assColor === '&H00000000' || assColor === '') {
-      return 'transparent'
-    }
-    
-    if (assColor.startsWith('&H')) {
-      // Extract BGR values from format &H00BBGGRR
-      const hexPart = assColor.slice(2) // Remove &H
-      if (hexPart.length >= 8) {
-        // Skip alpha (first 2 chars) and get BGR values
-        const alpha = hexPart.slice(0, 2)
-        const b = parseInt(hexPart.slice(2, 4), 16)
-        const g = parseInt(hexPart.slice(4, 6), 16) 
-        const r = parseInt(hexPart.slice(6, 8), 16)
-        return `rgb(${r}, ${g}, ${b})`
-      } else if (hexPart.length >= 6) {
-        // Handle format without alpha
-        const b = parseInt(hexPart.slice(0, 2), 16)
-        const g = parseInt(hexPart.slice(2, 4), 16)
-        const r = parseInt(hexPart.slice(4, 6), 16)
-        return `rgb(${r}, ${g}, ${b})`
-      }
-    }
-    return '#ffffff'
-  }
 
   // Load Google Fonts and test system fonts when component mounts
   useEffect(() => {
@@ -343,25 +220,6 @@ export function SubtitleStyleEditor({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Style Preview */}
-        <div className="border rounded-lg p-6 bg-gray-600 text-center relative overflow-hidden">
-          <div 
-            style={getStylePreview()}
-            className="mb-4 min-h-[60px] flex items-center justify-center"
-          >
-            {previewText}
-          </div>
-          <input
-            type="text"
-            value={previewText}
-            onChange={(e) => setPreviewText(e.target.value)}
-            className="px-3 py-1 text-sm border rounded bg-white text-black w-full max-w-xs"
-            placeholder="Edit preview text..."
-          />
-          <div className="mt-1 text-xs text-gray-300">
-            Font: {style.font_family} • Size: {style.font_size}px • Effect: {style.text_effect.replace('_', ' ')}
-          </div>
-        </div>
 
         {/* Tab Navigation */}
         <div className="flex space-x-2 border-b">
@@ -503,7 +361,19 @@ export function SubtitleStyleEditor({
                       <div className="w-0.5 h-4 bg-red-500 transform rotate-45"></div>
                     </div>
                   </button>
-                  {resources.colors.slice(0, 5).map(color => (
+                  {/* Common text colors */}
+                  {[
+                    { value: '&H00FFFFFF', label: 'White', hex: '#ffffff' },
+                    { value: '&H00000000', label: 'Black', hex: '#000000' },
+                    { value: '&H000000FF', label: 'Red', hex: '#ff0000' },
+                    { value: '&H0000FF00', label: 'Green', hex: '#00ff00' },
+                    { value: '&H00FF0000', label: 'Blue', hex: '#0000ff' },
+                    { value: '&H0000FFFF', label: 'Yellow', hex: '#ffff00' },
+                    { value: '&H00FF00FF', label: 'Magenta', hex: '#ff00ff' },
+                    { value: '&H00FFFF00', label: 'Cyan', hex: '#00ffff' },
+                    { value: '&H00808080', label: 'Gray', hex: '#808080' },
+                    { value: '&H00FFA500', label: 'Orange', hex: '#ffa500' }
+                  ].map(color => (
                     <button
                       key={color.value}
                       onClick={() => updateStyle({ primary_color: color.value })}
@@ -533,7 +403,19 @@ export function SubtitleStyleEditor({
                       <div className="w-0.5 h-4 bg-red-500 transform rotate-45"></div>
                     </div>
                   </button>
-                  {resources.colors.slice(5).map(color => (
+                  {/* Common outline colors - black first as it's most common */}
+                  {[
+                    { value: '&H00000000', label: 'Black', hex: '#000000' },
+                    { value: '&H00FFFFFF', label: 'White', hex: '#ffffff' },
+                    { value: '&H00808080', label: 'Gray', hex: '#808080' },
+                    { value: '&H00404040', label: 'Dark Gray', hex: '#404040' },
+                    { value: '&H000000FF', label: 'Red', hex: '#ff0000' },
+                    { value: '&H0000FF00', label: 'Green', hex: '#00ff00' },
+                    { value: '&H00FF0000', label: 'Blue', hex: '#0000ff' },
+                    { value: '&H0000FFFF', label: 'Yellow', hex: '#ffff00' },
+                    { value: '&H00FF00FF', label: 'Magenta', hex: '#ff00ff' },
+                    { value: '&H00FFFF00', label: 'Cyan', hex: '#00ffff' }
+                  ].map(color => (
                     <button
                       key={color.value}
                       onClick={() => updateStyle({ outline_color: color.value })}
@@ -762,56 +644,26 @@ export function SubtitleStyleEditor({
               />
             </div>
 
-            {/* Background Box */}
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={style.background_box}
-                  onChange={(e) => updateStyle({ background_box: e.target.checked })}
-                />
-                <span className="text-sm">Background Box</span>
-              </label>
-              
-              {style.background_box && (
-                <div className="ml-6 space-y-2">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Box Opacity: {Math.round(style.box_opacity * 100)}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={style.box_opacity}
-                      onChange={(e) => updateStyle({ box_opacity: parseFloat(e.target.value) })}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Box Padding</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="50"
-                      value={style.box_padding}
-                      onChange={(e) => updateStyle({ box_padding: parseInt(e.target.value) })}
-                      className="w-full px-2 py-1 border rounded"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Animation */}
             <div>
               <label className="block text-sm font-medium mb-2">Animation</label>
               <select
                 value={style.animation}
-                onChange={(e) => updateStyle({ animation: e.target.value })}
+                onChange={(e) => {
+                  const newAnimation = e.target.value
+                  if (newAnimation !== 'none' && style.enable_word_highlighting) {
+                    // If enabling animation, disable word highlighting
+                    updateStyle({ 
+                      animation: newAnimation,
+                      enable_word_highlighting: false
+                    })
+                  } else {
+                    updateStyle({ animation: newAnimation })
+                  }
+                }}
                 className="w-full px-3 py-2 pr-8 border border-input rounded-md"
+                disabled={style.enable_word_highlighting}
               >
                 {resources.animations.map(anim => (
                   <option key={anim.value} value={anim.value}>
@@ -819,9 +671,9 @@ export function SubtitleStyleEditor({
                   </option>
                 ))}
               </select>
-              {style.animation !== 'none' && style.enable_word_highlighting && (
-                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded mt-2">
-                  <strong>Tip:</strong> Animation plays once when the subtitle appears, then word highlighting takes over for the karaoke effect.
+              {style.enable_word_highlighting && (
+                <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded mt-2">
+                  <strong>Note:</strong> Animations are disabled when word highlighting is enabled. These features are incompatible.
                 </div>
               )}
             </div>
@@ -834,14 +686,25 @@ export function SubtitleStyleEditor({
                 <input
                   type="checkbox"
                   checked={style.enable_word_highlighting}
-                  onChange={(e) => updateStyle({ enable_word_highlighting: e.target.checked })}
+                  onChange={(e) => {
+                    const enableHighlighting = e.target.checked
+                    if (enableHighlighting && style.animation !== 'none') {
+                      // If enabling highlighting, disable animations
+                      updateStyle({ 
+                        enable_word_highlighting: enableHighlighting,
+                        animation: 'none'
+                      })
+                    } else {
+                      updateStyle({ enable_word_highlighting: enableHighlighting })
+                    }
+                  }}
                 />
                 <span className="text-sm">Enable word-by-word highlighting</span>
               </label>
               
-              {style.enable_word_highlighting && style.animation !== 'none' && (
-                <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-                  <strong>Perfect combo!</strong> Your subtitle will animate in with &quot;{style.animation.replace('_', ' ')}&quot; and then highlight each word as it&apos;s spoken.
+              {style.animation !== 'none' && (
+                <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                  <strong>Note:</strong> Word highlighting is disabled when animations are enabled. These features are incompatible.
                 </div>
               )}
 
@@ -851,7 +714,19 @@ export function SubtitleStyleEditor({
                   <div>
                     <label className="block text-sm font-medium mb-2">Highlight Color</label>
                     <div className="flex flex-wrap gap-1">
-                      {resources.colors.map(color => (
+                      {/* Common highlight colors - bright colors for visibility */}
+                      {[
+                        { value: '&H0000FFFF', label: 'Yellow', hex: '#ffff00' },
+                        { value: '&H00FFFFFF', label: 'White', hex: '#ffffff' },
+                        { value: '&H00FFA500', label: 'Orange', hex: '#ffa500' },
+                        { value: '&H000000FF', label: 'Red', hex: '#ff0000' },
+                        { value: '&H0000FF00', label: 'Green', hex: '#00ff00' },
+                        { value: '&H00FF0000', label: 'Blue', hex: '#0000ff' },
+                        { value: '&H00FF00FF', label: 'Magenta', hex: '#ff00ff' },
+                        { value: '&H00FFFF00', label: 'Cyan', hex: '#00ffff' },
+                        { value: '&H00000000', label: 'Black', hex: '#000000' },
+                        { value: '&H00808080', label: 'Gray', hex: '#808080' }
+                      ].map(color => (
                         <button
                           key={color.value}
                           onClick={() => updateStyle({ highlight_color: color.value })}

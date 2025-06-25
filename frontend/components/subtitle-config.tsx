@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SubtitleConfigType, TranscriptionConfigType } from '@/app/page'
 import { SubtitleStyleEditor } from './subtitle-style-editor'
+import { GlobalSubtitlePreview } from './global-subtitle-preview'
+import { StickyAutoPreview } from './sticky-auto-preview'
+import { SpeakerStyleReference } from './speaker-style-reference'
 
 interface SubtitleConfigProps {
   file: File
@@ -27,7 +30,6 @@ export function SubtitleConfig({
 }: SubtitleConfigProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [speakerStyles, setSpeakerStyles] = useState<Record<string, any>>({})
-  const [showStyleEditor, setShowStyleEditor] = useState(false)
 
   const handleStyleChange = (speakerId: string, style: any) => {
     setSpeakerStyles(prev => ({
@@ -37,7 +39,7 @@ export function SubtitleConfig({
   }
 
   const addCustomSpeaker = () => {
-    const newSpeakerId = `SPEAKER_${Object.keys(speakerStyles).length.toString().padStart(2, '0')}`
+    const newSpeakerId = `SPEAKER_${Object.keys(speakerStyles).length + 1}`
     const defaultStyle = {
       speaker_id: newSpeakerId,
       font_family: 'Impact',
@@ -70,7 +72,7 @@ export function SubtitleConfig({
       box_padding: 10,
       box_opacity: 0.8,
       border_style: 1,
-      all_caps: true,
+      all_caps: false,
       word_wrap: true,
       max_line_length: 30,
       enable_word_highlighting: true,
@@ -96,6 +98,8 @@ export function SubtitleConfig({
       // Include speaker styles in subtitle config
       const configWithStyles = {
         ...subtitleConfig,
+        // Convert "full_sentence" to a large number that the backend can handle
+        max_words: subtitleConfig.max_words === "full_sentence" ? 50 : subtitleConfig.max_words,
         speakers: Object.values(speakerStyles)
       }
       
@@ -122,7 +126,9 @@ export function SubtitleConfig({
 
   return (
     <div className="space-y-6">
-      <Card>
+      {/* Configuration Panel */}
+      <div className="space-y-6">
+        <Card>
         <CardHeader>
           <CardTitle>File Information</CardTitle>
         </CardHeader>
@@ -200,78 +206,82 @@ export function SubtitleConfig({
             </label>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Subtitle Styling</label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowStyleEditor(!showStyleEditor)}
-              >
-                {showStyleEditor ? 'Hide' : 'Customize'} Styles
-              </Button>
+              <div>
+                <label className="text-sm font-medium">Subtitle Styling</label>
+                <p className="text-xs text-gray-500 mt-1">
+                  {subtitleConfig.enable_speaker_detection 
+                    ? "Speaker order is determined by who speaks first in the video"
+                    : "Customize how your subtitles will appear"}
+                </p>
+              </div>
             </div>
+
+            {/* Show styles based on speaker detection */}
+            {Object.keys(speakerStyles).length === 0 && (
+              <div className="text-center py-6 text-gray-500 border rounded-lg bg-gray-50">
+                <p className="text-sm mb-3">
+                  {subtitleConfig.enable_speaker_detection 
+                    ? "No speaker styles configured yet."
+                    : "No custom style configured yet."}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomSpeaker}
+                >
+                  {subtitleConfig.enable_speaker_detection 
+                    ? "Add First Speaker Style"
+                    : "Add Custom Style"}
+                </Button>
+              </div>
+            )}
             
-            {showStyleEditor && (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Speaker Styles</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addCustomSpeaker}
-                    >
-                      Add Speaker Style
-                    </Button>
-                  </div>
-                  
-                  {Object.keys(speakerStyles).length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No custom styles yet.</p>
-                      <p className="text-sm">
-                        {subtitleConfig.enable_speaker_detection 
-                          ? "Speakers will be auto-detected and styled automatically, or add custom styles above."
-                          : "Add a custom style or enable speaker detection for automatic styling."
-                        }
-                      </p>
-                    </div>
-                  )}
-                  
-                  {Object.entries(speakerStyles).map(([speakerId, style]) => (
-                    <SubtitleStyleEditor
-                      key={speakerId}
-                      speakerId={speakerId}
-                      speakerName={`Speaker ${speakerId.split('_')[1] || '1'}`}
-                      style={style}
-                      onStyleChange={handleStyleChange}
-                      onRemove={() => {
-                        setSpeakerStyles(prev => {
-                          const newStyles = { ...prev }
-                          delete newStyles[speakerId]
-                          return newStyles
-                        })
-                      }}
-                    />
-                  ))}
-                  
-                  {/* Additional "Add Speaker Style" button that appears after styles are created */}
-                  {Object.keys(speakerStyles).length > 0 && (
-                    <div className="pt-4 border-t border-gray-200">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addCustomSpeaker}
-                        className="w-full"
-                      >
-                        + Add Another Speaker Style
-                      </Button>
-                    </div>
-                  )}
+{Object.entries(speakerStyles).map(([speakerId, style], index) => {
+              const speakerName = subtitleConfig.enable_speaker_detection 
+                ? `Speaker ${speakerId.split('_')[1] || (index + 1)}`
+                : "Subtitle Style"
+              
+              return (
+                <div key={speakerId}>
+                  <SpeakerStyleReference 
+                    style={style}
+                    speakerName={speakerName}
+                  />
+                  <SubtitleStyleEditor
+                    speakerId={speakerId}
+                    speakerName={speakerName}
+                    style={style}
+                    onStyleChange={handleStyleChange}
+                    onRemove={(Object.keys(speakerStyles).length > 1 && subtitleConfig.enable_speaker_detection) ? () => {
+                      setSpeakerStyles(prev => {
+                        const newStyles = { ...prev }
+                        delete newStyles[speakerId]
+                        return newStyles
+                      })
+                    } : undefined}
+                    maxWords={subtitleConfig.max_words}
+                    enableWordHighlighting={subtitleConfig.enable_word_highlighting ?? true}
+                    enableSpeakerDetection={subtitleConfig.enable_speaker_detection}
+                  />
                 </div>
+              )
+            })}
+            
+            {/* Add additional speakers button - only if speaker detection is enabled */}
+            {Object.keys(speakerStyles).length > 0 && subtitleConfig.enable_speaker_detection && (
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addCustomSpeaker}
+                  className="w-full"
+                >
+                  + Add Speaker {Object.keys(speakerStyles).length + 1} Style
+                </Button>
               </div>
             )}
           </div>
@@ -343,14 +353,63 @@ export function SubtitleConfig({
         </CardContent>
       </Card>
 
-      <Button 
-        onClick={handleSubmit} 
-        disabled={isSubmitting}
-        className="w-full"
-        size="lg"
-      >
-        {isSubmitting ? 'Starting Processing...' : 'Generate Subtitles'}
-      </Button>
+        <Button 
+          onClick={handleSubmit} 
+          disabled={isSubmitting}
+          className="w-full"
+          size="lg"
+        >
+          {isSubmitting ? 'Starting Processing...' : 'Generate Subtitles'}
+        </Button>
+      </div>
+
+      {/* Sticky Auto Preview - Always visible after scroll, auto-playing */}
+      <StickyAutoPreview
+        videoFile={file}
+        style={Object.keys(speakerStyles).length > 0 ? Object.values(speakerStyles)[0] : {
+          speaker_id: 'DEFAULT',
+          font_family: 'Impact',
+          font_size: 48,
+          font_weight: 'bold',
+          primary_color: '&H00FFFFFF',
+          outline_color: '&H00000000',
+          shadow_color: '&H80000000',
+          background_color: '&H00000000',
+          position: 'middle_center',
+          margin_left: 20,
+          margin_right: 20,
+          margin_vertical: 40,
+          bold: true,
+          italic: false,
+          underline: false,
+          strikeout: false,
+          outline_width: 3.0,
+          shadow_distance: 2.0,
+          text_effect: 'outline',
+          letter_spacing: 0.0,
+          line_spacing: 1.0,
+          scale_x: 100.0,
+          scale_y: 100.0,
+          rotation: 0.0,
+          animation: 'none',
+          fade_in_duration: 0.2,
+          fade_out_duration: 0.2,
+          background_box: false,
+          box_padding: 10,
+          box_opacity: 0.8,
+          border_style: 1,
+          all_caps: false,
+          word_wrap: true,
+          max_line_length: 30,
+          enable_word_highlighting: true,
+          highlight_color: '&H0000FFFF',
+          highlight_outline_color: '&H00000000',
+          highlight_bold: true
+        }}
+        maxWords={subtitleConfig.max_words}
+        enableWordHighlighting={subtitleConfig.enable_word_highlighting ?? true}
+        enableSpeakerDetection={subtitleConfig.enable_speaker_detection}
+      />
     </div>
   )
 }
