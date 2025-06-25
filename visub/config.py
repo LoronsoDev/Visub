@@ -91,8 +91,8 @@ class SpeakerStyle:
     
     # Animation
     animation: AnimationStyle = AnimationStyle.NONE
-    fade_in_duration: float = 0.2
-    fade_out_duration: float = 0.2
+    fade_in_duration: float = 0.0
+    fade_out_duration: float = 0.0
     
     # Background box
     background_box: bool = False

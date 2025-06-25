@@ -13,8 +13,12 @@ def get_animation_tags(animation_type, style):
     if animation_type == 'none':
         return ""
     
-    fade_in_duration = getattr(style, 'fade_in_duration', 0.2) * 1000  # Convert to milliseconds
-    fade_out_duration = getattr(style, 'fade_out_duration', 0.2) * 1000
+    fade_in_duration = getattr(style, 'fade_in_duration', 0.0) * 1000  # Convert to milliseconds
+    fade_out_duration = getattr(style, 'fade_out_duration', 0.0) * 1000
+    
+    # Only apply animations if fade durations are greater than 0
+    if fade_in_duration == 0 and fade_out_duration == 0:
+        return ""
     
     if animation_type == 'fade_in':
         return f"{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
@@ -41,8 +45,8 @@ def get_animation_tags(animation_type, style):
         # Typewriter effect (this is complex and might need different implementation)
         return f"{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
     
-    # Default fallback
-    return f"{{\\fad({int(fade_in_duration)},{int(fade_out_duration)})}}"
+    # Default fallback - only apply if durations are > 0
+    return ""
 
 def main():
     parser = argparse.ArgumentParser(
