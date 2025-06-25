@@ -102,9 +102,8 @@ def main():
         return
 
     for path, ass_path in subtitles.items():
-        # Preserve original file extension/format to avoid codec licensing issues
-        original_ext = os.path.splitext(path)[1]
-        out_path = os.path.join(output_dir, f"{filename(path)}_subtitled{original_ext}")
+        # Use MP4 as intermediate format (legal for processing, not distribution)
+        out_path = os.path.join(output_dir, f"{filename(path)}_subtitled.mp4")
 
         print(f"Adding subtitles to {filename(path)}...")
 
