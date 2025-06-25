@@ -348,6 +348,12 @@ export function StickyAutoPreview({
             break
           }
         }
+        
+        // If no word is actively playing but subtitle is showing, highlight first word
+        // This prevents flash when subtitle first appears
+        if (foundWord === -1 && subtitle.words.length > 0) {
+          foundWord = 0
+        }
         break
       }
 
