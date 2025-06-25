@@ -688,8 +688,7 @@ export function StickyAutoPreview({
         <div className="relative rounded-lg overflow-hidden shadow-2xl" style={{
           backgroundColor: videoFrameUrl ? 'transparent' : '#1a1a2e',
           ...getPreviewSize(),
-          maxWidth: '100%',
-          transition: 'width 0.3s ease-in-out'
+          maxWidth: '100%'
         }}>
           {/* Dynamic aspect ratio container */}
           <div className="relative" style={{ aspectRatio: aspectRatio }}>
@@ -714,7 +713,7 @@ export function StickyAutoPreview({
                     rgba(245, 158, 11, 0.4) 75%, 
                     rgba(239, 68, 68, 0.4) 100%)`,
                   backgroundSize: '400% 400%',
-                  animation: 'gradient-shift 8s ease infinite'
+                  animation: 'none'
                 }}
               />
             )}
@@ -759,7 +758,7 @@ export function StickyAutoPreview({
             {/* Progress bar */}
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-30">
               <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-100"
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
                 style={{ width: `${(currentTime / totalDuration) * 100}%` }}
               />
             </div>

@@ -527,7 +527,7 @@ export function VideoSubtitlePreview({
                 rgba(245, 158, 11, 0.4) 75%, 
                 rgba(239, 68, 68, 0.4) 100%)`,
               backgroundSize: '400% 400%',
-              animation: isPlaying ? 'gradient-shift 8s ease infinite' : 'none'
+              animation: 'none'
             }}
           />
           
@@ -563,7 +563,7 @@ export function VideoSubtitlePreview({
         {/* Progress bar */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-30">
           <div 
-            className="h-full bg-white transition-all duration-100"
+            className="h-full bg-white"
             style={{ width: `${(currentTime / totalDuration) * 100}%` }}
           />
         </div>
