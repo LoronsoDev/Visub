@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { Eye, EyeOff, Maximize2, Minimize2 } from 'lucide-react'
+import { Play, Pause, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface SpeakerStyle {
@@ -46,20 +45,15 @@ interface SpeakerStyle {
   highlight_bold: boolean
 }
 
-interface StickyAutoPreviewProps {
+interface VideoSubtitlePreviewProps {
   style: SpeakerStyle
   maxWords?: number | string
   enableWordHighlighting?: boolean
   enableSpeakerDetection?: boolean
-  videoFile?: File
-  videoMetadata?: {
-    width: number
-    height: number
-    duration: number
-  }
+  className?: string
 }
 
-// Sample text for auto-playing preview
+// Full sample text that will be broken down based on settings
 const SAMPLE_TEXT = [
   { word: "Welcome", start: 0.0, end: 0.8, speaker: "SPEAKER_00" },
   { word: "to", start: 0.8, end: 1.0, speaker: "SPEAKER_00" },
@@ -73,7 +67,9 @@ const SAMPLE_TEXT = [
   { word: "videos", start: 5.5, end: 6.1, speaker: "SPEAKER_01" },
   { word: "with", start: 6.1, end: 6.3, speaker: "SPEAKER_01" },
   { word: "amazing", start: 6.3, end: 6.9, speaker: "SPEAKER_01" },
-  { word: "effects.", start: 6.9, end: 7.5, speaker: "SPEAKER_01" }
+  { word: "word", start: 6.9, end: 7.2, speaker: "SPEAKER_01" },
+  { word: "highlighting", start: 7.2, end: 8.0, speaker: "SPEAKER_01" },
+  { word: "effects.", start: 8.0, end: 8.6, speaker: "SPEAKER_01" }
 ]
 
 // Generate subtitles based on settings
@@ -145,169 +141,33 @@ const generateSampleSubtitles = (maxWords: number | string, enableSpeakerDetecti
   return subtitles
 }
 
-export function StickyAutoPreview({ 
+export function VideoSubtitlePreview({ 
   style, 
   maxWords = 4, 
   enableWordHighlighting = true, 
   enableSpeakerDetection = false,
-  videoFile,
-  videoMetadata
-}: StickyAutoPreviewProps) {
-  const [isVisible, setIsVisible] = useState(false) // Start hidden
-  const [isExpanded, setIsExpanded] = useState(false) // Start compact on mobile
+  className = '' 
+}: VideoSubtitlePreviewProps) {
+  const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [currentSubtitle, setCurrentSubtitle] = useState(0)
   const [currentWord, setCurrentWord] = useState(-1)
-  const [isMounted, setIsMounted] = useState(false)
-  const [hasScrolled, setHasScrolled] = useState(false)
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)
-  const [videoFrameUrl, setVideoFrameUrl] = useState<string | null>(null)
-  const [aspectRatio, setAspectRatio] = useState(16 / 9) // Default 16:9
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   
   // Generate subtitles based on current settings
   const sampleSubtitles = generateSampleSubtitles(maxWords, enableSpeakerDetection)
   
-  // Calculate total duration with gaps
-  const totalDuration = sampleSubtitles.reduce((acc, sub) => acc + sub.duration + 0.8, 0) // 0.8s gap between subtitles
+  // Calculate total duration
+  const totalDuration = sampleSubtitles.reduce((acc, sub) => acc + sub.duration + 0.5, 0) // 0.5s gap between subtitles
 
-  // Extract random frame from video file with debounce
   useEffect(() => {
-    if (!videoFile) {
-      setVideoFrameUrl(null)
-      setAspectRatio(16 / 9)
-      return
-    }
-
-    // Debounce to avoid multiple extractions
-    const timeoutId = setTimeout(() => {
-      extractVideoFrame()
-    }, 300)
-
-    const extractVideoFrame = async () => {
-      try {
-        const video = document.createElement('video')
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        
-        if (!ctx) {
-          console.warn('Canvas context not available')
-          return
-        }
-
-        video.src = URL.createObjectURL(videoFile)
-        video.crossOrigin = 'anonymous'
-        video.muted = true
-        video.playsInline = true // Important for mobile
-        video.preload = 'metadata'
-
-        console.log('Starting video frame extraction...')
-
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Video loading timeout'))
-          }, 10000) // 10 second timeout
-
-          video.onloadedmetadata = () => {
-            clearTimeout(timeout)
-            console.log(`Video loaded: ${video.videoWidth}x${video.videoHeight}, duration: ${video.duration}s`)
-            
-            // Calculate aspect ratio from video
-            const calculatedAspectRatio = video.videoWidth / video.videoHeight
-            setAspectRatio(calculatedAspectRatio)
-            
-            // Seek to random time (between 10% and 90% of video)
-            const randomTime = video.duration * (0.1 + Math.random() * 0.8)
-            video.currentTime = randomTime
-            console.log(`Seeking to time: ${randomTime}s`)
-            resolve(null)
-          }
-          
-          video.onerror = (e) => {
-            clearTimeout(timeout)
-            console.error('Video loading error:', e)
-            reject(e)
-          }
-        })
-
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Video seeking timeout'))
-          }, 5000)
-
-          video.onseeked = () => {
-            clearTimeout(timeout)
-            console.log('Video seek completed')
-            resolve(null)
-          }
-          
-          video.onerror = (e) => {
-            clearTimeout(timeout)
-            reject(e)
-          }
-        })
-
-        // Draw frame to canvas with size limits for performance
-        const maxWidth = 640
-        const maxHeight = 360
-        const scale = Math.min(maxWidth / video.videoWidth, maxHeight / video.videoHeight, 1)
-        
-        canvas.width = video.videoWidth * scale
-        canvas.height = video.videoHeight * scale
-        
-        console.log(`Drawing frame: ${canvas.width}x${canvas.height}`)
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-        // Convert to data URL with lower quality for smaller size
-        const frameUrl = canvas.toDataURL('image/jpeg', 0.6)
-        console.log(`Frame extracted successfully, size: ${Math.round(frameUrl.length / 1024)}KB`)
-        setVideoFrameUrl(frameUrl)
-
-        // Cleanup
-        URL.revokeObjectURL(video.src)
-      } catch (error) {
-        console.error('Error extracting video frame:', error)
-        console.log('Falling back to gradient background')
-        // Keep default aspect ratio and gradient background
-        setAspectRatio(16 / 9)
-      }
-    }
-
-    return () => clearTimeout(timeoutId)
-  }, [videoFile])
-
-  // Mount check for portal, scroll detection, and window resize
-  useEffect(() => {
-    setIsMounted(true)
-    
-    const handleScroll = () => {
-      if (window.scrollY > 100 && !hasScrolled) { // Show after scrolling 100px
-        setHasScrolled(true)
-        setIsVisible(true)
-      }
-    }
-
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth)
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('resize', handleResize, { passive: true })
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleResize)
-    }
-  }, [hasScrolled])
-
-  // Auto-play loop
-  useEffect(() => {
-    if (isVisible) {
+    if (isPlaying) {
       intervalRef.current = setInterval(() => {
         setCurrentTime(prev => {
           const newTime = prev + 0.1
           if (newTime >= totalDuration) {
-            return 0 // Loop back to start
+            setIsPlaying(false)
+            return 0
           }
           return newTime
         })
@@ -323,7 +183,7 @@ export function StickyAutoPreview({
         clearInterval(intervalRef.current)
       }
     }
-  }, [isVisible, totalDuration])
+  }, [isPlaying, totalDuration])
 
   // Update current subtitle and word based on time
   useEffect(() => {
@@ -351,19 +211,31 @@ export function StickyAutoPreview({
         break
       }
 
-      timeOffset += subtitle.duration + 0.8 // 0.8s gap
+      timeOffset += subtitle.duration + 0.5 // 0.5s gap
     }
 
     setCurrentSubtitle(foundSubtitle)
     setCurrentWord(foundWord)
   }, [currentTime, sampleSubtitles])
 
-  // Reset when settings change
+  // Reset preview when settings change
   useEffect(() => {
+    setIsPlaying(false)
     setCurrentTime(0)
     setCurrentSubtitle(-1)
     setCurrentWord(-1)
-  }, [maxWords, enableWordHighlighting, enableSpeakerDetection, style])
+  }, [maxWords, enableWordHighlighting, enableSpeakerDetection])
+
+  const togglePlay = () => {
+    setIsPlaying(!isPlaying)
+  }
+
+  const reset = () => {
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setCurrentSubtitle(-1)
+    setCurrentWord(-1)
+  }
 
   // Convert ASS color format to CSS
   const assColorToRgb = (assColor: string): string => {
@@ -436,6 +308,25 @@ export function StickyAutoPreview({
           -${width}px ${width}px 0 ${outlineColor},
           ${width}px ${width}px 0 ${outlineColor},
           0 0 ${width * 3}px ${outlineColor}
+        `.replace(/\s+/g, ' ').trim()
+      case 'double_outline':
+        return `
+          -${width * 2}px -${width * 2}px 0 ${outlineColor},
+          ${width * 2}px -${width * 2}px 0 ${outlineColor},
+          -${width * 2}px ${width * 2}px 0 ${outlineColor},
+          ${width * 2}px ${width * 2}px 0 ${outlineColor},
+          -${width}px -${width}px 0 ${outlineColor},
+          ${width}px -${width}px 0 ${outlineColor},
+          -${width}px ${width}px 0 ${outlineColor},
+          ${width}px ${width}px 0 ${outlineColor}
+        `.replace(/\s+/g, ' ').trim()
+      case 'drop_shadow':
+        return `
+          -${width}px -${width}px 0 ${outlineColor},
+          ${width}px -${width}px 0 ${outlineColor},
+          -${width}px ${width}px 0 ${outlineColor},
+          ${width}px ${width}px 0 ${outlineColor},
+          ${style.shadow_distance * 2}px ${style.shadow_distance * 2}px ${style.shadow_distance * 3}px ${shadowColor}
         `.replace(/\s+/g, ' ').trim()
       default:
         return `2px 2px 4px ${outlineColor}`
@@ -539,10 +430,6 @@ export function StickyAutoPreview({
     // Check if word highlighting should be enabled (both global setting and style setting)
     const shouldHighlight = enableWordHighlighting && style.enable_word_highlighting
     
-    // Render as single text block with highlighting overlay
-    let fullText = subtitle.words.map(w => w.word).join(' ')
-    if (style.all_caps) fullText = fullText.toUpperCase()
-    
     const words = subtitle.words.map((word, index) => {
       let text = word.word
       if (style.all_caps) text = text.toUpperCase()
@@ -571,17 +458,9 @@ export function StickyAutoPreview({
     ) : null
 
     const positionStyles = getPositionStyles()
-    // Responsive font sizing: much smaller on mobile compact, normal when expanded
-    const getFontSize = () => {
-      if (windowWidth < 768) {
-        return `${style.font_size * (isExpanded ? 0.5 : 0.25)}px` // Mobile: 0.25x compact, 0.5x expanded
-      }
-      return `${style.font_size * 0.6}px` // Desktop: 0.6x
-    }
-
     const baseStyle = {
       fontFamily: getFontFamily(style.font_family),
-      fontSize: getFontSize(),
+      fontSize: `${style.font_size * 0.8}px`, // Scale for preview
       fontWeight: style.bold ? '900' : style.font_weight || 'normal',
       fontStyle: style.italic ? 'italic' : 'normal',
       color: assColorToRgb(style.primary_color),
@@ -599,6 +478,7 @@ export function StickyAutoPreview({
       borderRadius: style.background_box ? '4px' : '0',
       transform: `scale(${style.scale_x / 100}, ${style.scale_y / 100}) rotate(${style.rotation}deg)`,
       maxWidth: '90%',
+      wordWrap: 'break-word' as const,
     }
 
     return (
@@ -614,10 +494,7 @@ export function StickyAutoPreview({
           <div
             style={{
               ...baseStyle,
-              textAlign: positionStyles.textAlign,
-              wordBreak: 'normal',
-              hyphens: 'none',
-              whiteSpace: 'normal'
+              textAlign: positionStyles.textAlign
             }}
           >
             {words}
@@ -627,180 +504,131 @@ export function StickyAutoPreview({
     )
   }
 
-  if (!isMounted) {
-    return null
-  }
+  return (
+    <div className={`relative ${className}`}>
+      {/* Video Container with 16:9 Aspect Ratio */}
+      <div className="relative w-full bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-lg overflow-hidden">
+        {/* Aspect ratio container */}
+        <div className="aspect-video relative">
+          {/* Fake video background with moving gradient */}
+          <div 
+            className="absolute inset-0 opacity-30"
+            style={{
+              background: `linear-gradient(45deg, 
+                rgba(168, 85, 247, 0.4) 0%, 
+                rgba(59, 130, 246, 0.4) 25%, 
+                rgba(16, 185, 129, 0.4) 50%, 
+                rgba(245, 158, 11, 0.4) 75%, 
+                rgba(239, 68, 68, 0.4) 100%)`,
+              backgroundSize: '400% 400%',
+              animation: isPlaying ? 'gradient-shift 8s ease infinite' : 'none'
+            }}
+          />
+          
+          {/* Overlay pattern for more realistic video look */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="w-full h-full" style={{
+              backgroundImage: `
+                radial-gradient(circle at 25% 25%, white 2px, transparent 2px),
+                radial-gradient(circle at 75% 75%, white 2px, transparent 2px)
+              `,
+              backgroundSize: '50px 50px'
+            }} />
+          </div>
 
-  // Show button when hidden but scrolled
-  if (!isVisible && hasScrolled) {
-    const showButtonContent = (
-      <div 
-        style={{
-          position: 'fixed',
-          top: '16px',
-          right: '16px',
-          zIndex: 9999
-        }}
-      >
+          {/* Video time indicator */}
+          <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white text-sm px-2 py-1 rounded">
+            {Math.floor(currentTime * 10) / 10}s / {Math.floor(totalDuration * 10) / 10}s
+          </div>
+
+          {/* Subtitle overlay */}
+          {renderSubtitle()}
+          
+          {/* Play/Pause overlay when not playing */}
+          {!isPlaying && currentTime === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="bg-black bg-opacity-50 rounded-full p-4">
+                <Play className="w-8 h-8 text-white" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-30">
+          <div 
+            className="h-full bg-white transition-all duration-100"
+            style={{ width: `${(currentTime / totalDuration) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center justify-center gap-2 mt-4">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsVisible(true)}
-          className="bg-white shadow-lg border-gray-300 hover:bg-gray-50"
+          onClick={togglePlay}
+          className="flex items-center gap-2"
         >
-          <Eye className="w-4 h-4 mr-2" />
-          Show Preview
+          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          {isPlaying ? 'Pause' : 'Play'} Preview
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={reset}
+          className="flex items-center gap-2"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Reset
         </Button>
       </div>
-    )
-    return createPortal(showButtonContent, document.body)
-  }
 
-  // Main preview content
-  if (isVisible) {
-    // Calculate preview size based on screen size and expansion state
-    const getPreviewSize = () => {
-      if (windowWidth >= 768) {
-        // Desktop: always same size
-        return { width: '360px' }
-      } else {
-        // Mobile: compact vs expanded
-        return { width: isExpanded ? '280px' : '140px' }
-      }
-    }
-
-    const previewContent = (
-      <div 
-        style={{
-          position: 'fixed',
-          top: '16px',
-          right: '16px',
-          zIndex: 9999
-        }}
-      >
-        {/* Video Preview - No external frame */}
-        <div className="relative rounded-lg overflow-hidden shadow-2xl" style={{
-          backgroundColor: videoFrameUrl ? 'transparent' : '#1a1a2e',
-          ...getPreviewSize(),
-          maxWidth: '100%',
-          transition: 'width 0.3s ease-in-out'
-        }}>
-          {/* Dynamic aspect ratio container */}
-          <div className="relative" style={{ aspectRatio: aspectRatio }}>
-            {/* Video frame background */}
-            {videoFrameUrl ? (
-              <div 
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ 
-                  backgroundImage: `url(${videoFrameUrl})`,
-                  filter: 'brightness(0.7) contrast(1.1)'
-                }}
-              />
-            ) : (
-              // Fallback animated background if no video
-              <div 
-                className="absolute inset-0 opacity-30"
-                style={{
-                  background: `linear-gradient(45deg, 
-                    rgba(168, 85, 247, 0.4) 0%, 
-                    rgba(59, 130, 246, 0.4) 25%, 
-                    rgba(16, 185, 129, 0.4) 50%, 
-                    rgba(245, 158, 11, 0.4) 75%, 
-                    rgba(239, 68, 68, 0.4) 100%)`,
-                  backgroundSize: '400% 400%',
-                  animation: 'gradient-shift 8s ease infinite'
-                }}
-              />
-            )}
-            
-            {/* Subtle overlay for better subtitle readability */}
-            <div className="absolute inset-0 bg-black bg-opacity-20" />
-
-            {/* Live Preview indicator */}
-            <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-              <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
-              {windowWidth < 768 && !isExpanded ? 'Live' : 'Subtitles Live Preview'}
-            </div>
-
-            {/* Control buttons */}
-            <div className="absolute top-2 right-2 flex gap-1">
-              {/* Expand/Collapse button - only on mobile */}
-              {windowWidth < 768 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className="w-6 h-6 p-0 bg-black bg-opacity-70 hover:bg-opacity-90 text-white border-0"
-                >
-                  {isExpanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-                </Button>
-              )}
-              
-              {/* Hide Preview button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsVisible(false)}
-                className="w-6 h-6 p-0 bg-black bg-opacity-70 hover:bg-opacity-90 text-white border-0"
-              >
-                <EyeOff className="w-3 h-3" />
-              </Button>
-            </div>
-
-            {/* Subtitle overlay */}
-            {renderSubtitle()}
-
-            {/* Progress bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-30">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-100"
-                style={{ width: `${(currentTime / totalDuration) * 100}%` }}
-              />
-            </div>
-
-            {/* Status info overlay - Bottom left - hide on mobile compact */}
-            {!(windowWidth < 768 && !isExpanded) && (
-              <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                {currentSubtitle !== -1 && (
-                  <>
-                    Subtitle {currentSubtitle + 1}/{sampleSubtitles.length}
-                    {currentWord !== -1 && enableWordHighlighting && style.enable_word_highlighting && (
-                      <span className="text-blue-400"> • Word {currentWord + 1}</span>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Configuration info overlay - Bottom right - more compact on mobile */}
-            <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-              <div className="flex items-center gap-1 text-xs">
-                <span>{maxWords === "full_sentence" ? "F" : maxWords}{windowWidth < 768 && !isExpanded ? '' : 'w'}</span>
-                {(windowWidth >= 768 || isExpanded) && <span className="text-gray-300">•</span>}
-                <span>{enableWordHighlighting ? "HL" : (windowWidth < 768 && !isExpanded ? "N" : "No HL")}</span>
-                {enableSpeakerDetection && (
-                  <>
-                    {(windowWidth >= 768 || isExpanded) && <span className="text-gray-300">•</span>}
-                    <span className="text-green-400">SP</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+      {/* Current subtitle info */}
+      {currentSubtitle !== -1 && (
+        <div className="mt-2 text-sm text-gray-600 text-center">
+          Subtitle {currentSubtitle + 1} of {sampleSubtitles.length}
+          {currentWord !== -1 && enableWordHighlighting && style.enable_word_highlighting && (
+            <span className="ml-2 text-blue-600">
+              • Highlighting word {currentWord + 1}
+            </span>
+          )}
+          {enableSpeakerDetection && sampleSubtitles[currentSubtitle]?.speaker && (
+            <span className="ml-2 text-green-600">
+              • Speaker: {sampleSubtitles[currentSubtitle].speaker}
+            </span>
+          )}
         </div>
-        {/* CSS Animation */}
-        <style jsx>{`
-          @keyframes gradient-shift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `}</style>
-      </div>
-    )
-    return createPortal(previewContent, document.body)
-  }
+      )}
 
-  // Return null if not visible and hasn't scrolled
-  return null
+      {/* Configuration info */}
+      <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
+        <div className="flex flex-wrap gap-4 justify-center">
+          <span>
+            <strong>Words:</strong> {maxWords === "full_sentence" ? "Full sentence" : maxWords}
+          </span>
+          <span>
+            <strong>Highlighting:</strong> {enableWordHighlighting ? "On" : "Off"}
+          </span>
+          <span>
+            <strong>Speakers:</strong> {enableSpeakerDetection ? "Detected" : "Off"}
+          </span>
+          <span>
+            <strong>Subtitles:</strong> {sampleSubtitles.length}
+          </span>
+        </div>
+      </div>
+
+      {/* CSS Animation for background */}
+      <style jsx>{`
+        @keyframes gradient-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
+    </div>
+  )
 }
